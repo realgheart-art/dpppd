@@ -213,6 +213,22 @@ tbody tr:last-child td{border-bottom:none}
 
 .demo-note{background:var(--info-bg);border:1px dashed var(--info);border-radius:10px;padding:12px 16px;font-size:12.5px;color:#1f5a8f;margin-bottom:20px}
 .demo-note b{color:var(--navy)}
+.gambar-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.gambar-input{position:absolute;width:.1px;height:.1px;opacity:0;overflow:hidden;z-index:-1}
+.gambar-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border:2px dashed var(--line);border-radius:12px;padding:26px 12px;cursor:pointer;color:var(--muted);
+  background:#fbfcfd;transition:border-color .15s,background .15s;text-align:center;font-size:13px;font-weight:600}
+.gambar-drop:hover{border-color:var(--brass);background:var(--brass-soft);color:#7a5c08}
+.gambar-ico{font-size:26px;line-height:1;color:var(--navy-300)}
+.gambar-hint{font-size:11px;font-weight:500;color:#aab}
+.gambar-preview{position:relative;border-radius:12px;overflow:hidden;border:1.5px solid var(--line)}
+.gambar-preview img{width:100%;height:180px;object-fit:cover;display:block}
+.gambar-remove{position:absolute;top:8px;right:8px;background:rgba(15,41,66,.85);color:#fff;font-size:12px;
+  font-weight:600;padding:5px 10px;border-radius:7px;backdrop-filter:blur(2px)}
+.gambar-remove:hover{background:var(--danger)}
+.gambar-thumbs{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.gambar-thumbs img{width:120px;height:88px;object-fit:cover;border-radius:9px;border:1.5px solid var(--line);cursor:pointer;transition:transform .12s}
+.gambar-thumbs img:hover{transform:scale(1.03);border-color:var(--brass)}
 
 /* mobile */
 .hamburger{display:none;color:#fff;font-size:22px;padding:4px 8px}
@@ -290,7 +306,7 @@ tbody tr:last-child td{border-bottom:none}
    Bila DEMO_MODE = false, semua fungsi guna fetch() ke GAS.
    ============================================================ */
 const CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbw8XFVOH534smSHIBzBSuCgHIa8rB-MB0CAVYNh9NS168kBL7O0XMSkSoisBB4-3PCd0w/exec", // ← ganti selepas deploy GAS
+  API_URL: "https://script.google.com/macros/s/AKfycbxL3Q0XM05cIxjHB4Atqyhlzl-d7pwJSAtP67zscWNSeI-qN1yuvqG8xHH4HeBmCqop0A/exec", // ← ganti selepas deploy GAS
   DEMO_MODE: false,   // true = guna data terbenam di bawah (tiada backend perlu)
 };
 
@@ -337,7 +353,8 @@ function mapFromSheets(raw){
     kehadiran:r.Kehadiran?String(r.Kehadiran).split("|").map(s=>s.trim()).filter(Boolean):[],
     ringkasan:r.RingkasanSesi,status:r.StatusSesi,tarikhSubmit:dstr(r.TarikhSubmit),
     dicatatOleh:r.DicatatOleh,disahkanOleh:r.DisahkanOleh,
-    dihantarKePengarah:yn(r.DihantarKePengarah),tarikhHantarPengarah:dstr(r.TarikhHantarPengarah)}));
+    dihantarKePengarah:yn(r.DihantarKePengarah),tarikhHantarPengarah:dstr(r.TarikhHantarPengarah),
+    gambar1:r.Gambar1||null,gambar2:r.Gambar2||null}));
   DB.isu=(raw.isu||[]).map(r=>({id:r.IsuID,dialogId:r.DialogID,ppdId:r.PPD_ID,kategoriId:r.KategoriID,
     penerangan:r.Penerangan,tindakan:r.Tindakan,sektorPegawai:r.SektorPegawai,
     perluTindakSusul:yn(r.PerluTindakSusul),tarikh:dstr(r.TarikhDicatat),
@@ -543,6 +560,30 @@ function slaCheck(ts){
 }
 
 /* ============================================================
+   GAMBAR — sumber & pratonton (demo: data URL · live: Drive)
+   ============================================================ */
+function gambarSrc(val){
+  if(!val)return null;
+  if(String(val).startsWith("data:"))return val;           // demo (data URL)
+  if(String(val).startsWith("http"))return val;            // URL penuh
+  return `https://drive.google.com/thumbnail?id=${val}&sz=w800`; // live: fileId Drive
+}
+function gambarThumbsHtml(d){
+  const list=[d.gambar1,d.gambar2].map(gambarSrc).filter(Boolean);
+  if(!list.length)return "";
+  return `<div class="gambar-thumbs">`+list.map((src,idx)=>
+    `<img src="${src}" alt="Gambar ${idx+1}" onclick="lihatGambar('${src.replace(/'/g,"")}')">`).join("")+`</div>`;
+}
+function lihatGambar(src){
+  const m=document.createElement("div");m.className="modal-back";m.id="modalBack";
+  m.innerHTML=`<div class="modal" style="max-width:720px"><div class="modal-head"><h3>Lampiran Gambar</h3>
+    <button class="banner-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" style="text-align:center"><img src="${src}" style="max-width:100%;border-radius:10px"></div></div>`;
+  m.onclick=(e)=>{if(e.target===m)closeModal();};
+  document.body.appendChild(m);
+}
+
+/* ============================================================
    JANA PDF — Format rasmi LAMPIRAN A (DP PPD), potret A4
    ============================================================ */
 function drawCrestFallback(doc,NAVY,BRASS,M){
@@ -550,12 +591,13 @@ function drawCrestFallback(doc,NAVY,BRASS,M){
   doc.setTextColor(...NAVY); doc.setFont("times","bold"); doc.setFontSize(15);
   doc.text("D", M+6, 15.5, {align:"center"});
 }
-function generateLaporanPDF(dialogId, opts={}){
+async function generateLaporanPDF(dialogId, opts={}){
   if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
   const { jsPDF } = window.jspdf;
   const d=DB.dialog.find(x=>x.id===dialogId);
   if(!d){toast("Rekod dialog tidak dijumpai");return;}
   const issues=DB.isu.filter(i=>i.dialogId===dialogId);
+  const gambarData=await resolveGambar(d);   // [dataUrl|null, dataUrl|null]
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const pageW=doc.internal.pageSize.getWidth();   // 210
   const M=18;                                     // margin
@@ -676,6 +718,38 @@ function generateLaporanPDF(dialogId, opts={}){
     doc.setTextColor(...INK);
   }
 
+  /* ---- Lampiran Gambar (halaman berasingan) ---- */
+  const validImgs=gambarData.filter(Boolean);
+  if(validImgs.length){
+    doc.addPage();
+    // kepala surat ringkas
+    doc.setFillColor(...NAVY); doc.rect(0,0,pageW,20,"F");
+    if(LOGO_PDF){try{doc.addImage(LOGO_PDF,"PNG",M,3,14,14);}catch(e){}}
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(11);
+    doc.text("LAMPIRAN GAMBAR", M+18, 12);
+    doc.setTextColor(...INK);
+    doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text(`${ppdName(d.ppdId)} · Dialog Prestasi Minggu ${d.minggu}/${d.tahun}`, M, 28);
+    let gy=34;
+    const maxW=pageW-2*M;
+    const maxH=(doc.internal.pageSize.getHeight()-40-14*validImgs.length)/validImgs.length; // ruang seimbang
+    validImgs.forEach((data,idx)=>{
+      try{
+        const props=doc.getImageProperties(data);
+        let w=maxW, h=w*props.height/props.width;
+        if(h>maxH){h=maxH; w=h*props.width/props.height;}
+        const x=(pageW-w)/2;
+        doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...NAVY);
+        doc.text(`Gambar ${idx+1}`, M, gy);
+        doc.setTextColor(...INK);
+        const fmt=/^data:image\/png/i.test(data)?"PNG":"JPEG";
+        doc.addImage(data,fmt,x,gy+3,w,h);
+        doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);doc.rect(x,gy+3,w,h);
+        gy+=h+16;
+      }catch(e){/* langkau gambar rosak */}
+    });
+  }
+
   /* ---- Kaki ---- */
   const ph=doc.internal.pageSize.getHeight();
   doc.setFontSize(8); doc.setTextColor(150,150,150);
@@ -686,6 +760,19 @@ function generateLaporanPDF(dialogId, opts={}){
   if(opts.returnDoc)return doc;
   doc.save(filename);
   toast("Laporan PDF dijana");
+}
+/* Dapatkan gambar sebagai data URL untuk PDF (demo terus · live via GAS) */
+async function resolveGambar(d){
+  const out=[];
+  for(const val of [d.gambar1,d.gambar2]){
+    if(!val){out.push(null);continue;}
+    if(String(val).startsWith("data:")){out.push(val);continue;}
+    if(!CONFIG.DEMO_MODE){
+      try{ const b64=await apiGet("getGambar",{id:val}); out.push(b64); }
+      catch(e){ out.push(null); }
+    }else{ out.push(null); }
+  }
+  return out;
 }
 
 
@@ -991,6 +1078,8 @@ function renderMBList(){
         <button class="btn btn-ghost btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ PDF</button>
         <button class="btn btn-brass btn-sm" onclick="openFeedback('${d.id}')">+ Beri Maklum Balas</button></div></div>
       <div class="card-body">`;
+    const thumbs=gambarThumbsHtml(d);
+    if(thumbs)h+=`<div style="margin-bottom:14px">${thumbs}</div>`;
     if(fbs.length){
       fbs.forEach(f=>{h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`;});
     }else{
@@ -1255,6 +1344,25 @@ function renderBorang(){
     <div class="card-body"><div id="issueList"></div>
     <button class="btn btn-ghost" onclick="addIssue()">+ Tambah Isu</button></div></div>`;
 
+  h+=`<div class="card"><div class="card-head"><div><h3>Lampiran Gambar</h3>
+    <div class="sub">Pilihan — muat naik sehingga 2 keping gambar (bukti/sesi dialog). Akan disertakan dalam PDF laporan.</div></div></div>
+    <div class="card-body">
+      <div class="gambar-grid">
+        <div class="gambar-slot" id="gslot1">
+          <input type="file" id="gInput1" accept="image/*" class="gambar-input" onchange="pilihGambar(1,this)">
+          <label for="gInput1" class="gambar-drop" id="gdrop1">
+            <span class="gambar-ico">＋</span><span>Gambar 1</span><span class="gambar-hint">JPG/PNG</span></label>
+          <div class="gambar-preview hidden" id="gprev1"></div>
+        </div>
+        <div class="gambar-slot" id="gslot2">
+          <input type="file" id="gInput2" accept="image/*" class="gambar-input" onchange="pilihGambar(2,this)">
+          <label for="gInput2" class="gambar-drop" id="gdrop2">
+            <span class="gambar-ico">＋</span><span>Gambar 2</span><span class="gambar-hint">JPG/PNG</span></label>
+          <div class="gambar-preview hidden" id="gprev2"></div>
+        </div>
+      </div>
+    </div></div>`;
+
   h+=`<div class="card"><div class="card-head"><h3>Pengesahan</h3></div><div class="card-body">
     <div class="form-row">
       <div class="form-field"><label>Dicatat oleh <span class="req">*</span></label>
@@ -1269,9 +1377,46 @@ function renderBorang(){
     <button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button></div>`;
 
   $("#main").innerHTML=h;
+  borangGambar={1:null,2:null};
   issueCount=0;addIssue();addIssue();
 }
-function updateHari(){const t=$("#dTarikh").value;if(t)$("#dHari").value=hariMelayu(t);}
+/* ---- Muat naik & pratonton gambar (dikecilkan di pelayar) ---- */
+let borangGambar={1:null,2:null};
+function pilihGambar(slot,input){
+  const file=input.files&&input.files[0];
+  if(!file)return;
+  if(!file.type.startsWith("image/")){toast("Sila pilih fail imej");input.value="";return;}
+  resizeImage(file,1400,0.82,(dataUrl)=>{
+    borangGambar[slot]=dataUrl;
+    const prev=$("#gprev"+slot), drop=$("#gdrop"+slot);
+    prev.innerHTML=`<img src="${dataUrl}" alt="Gambar ${slot}">
+      <button type="button" class="gambar-remove" onclick="buangGambar(${slot})">✕ Buang</button>`;
+    prev.classList.remove("hidden"); drop.classList.add("hidden");
+  });
+}
+function buangGambar(slot){
+  borangGambar[slot]=null;
+  $("#gInput"+slot).value="";
+  $("#gprev"+slot).classList.add("hidden");
+  $("#gprev"+slot).innerHTML="";
+  $("#gdrop"+slot).classList.remove("hidden");
+}
+function resizeImage(file,maxDim,quality,cb){
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      if(w>maxDim||h>maxDim){ if(w>=h){h=Math.round(h*maxDim/w);w=maxDim;} else {w=Math.round(w*maxDim/h);h=maxDim;} }
+      const c=document.createElement("canvas");c.width=w;c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      cb(c.toDataURL("image/jpeg",quality));
+    };
+    img.onerror=()=>toast("Gagal membaca imej");
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 function addIssue(){
   issueCount++;
   const cats=DB.kategori.filter(k=>k.aktif);
@@ -1321,6 +1466,7 @@ function submitDialog(){
     const payload={ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,hari:$("#dHari").value,
       masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,minggu:LATEST_WEEK,tahun:DB.config.TAHUN_SEMASA,
       kehadiran,ringkasan:$("#dRingkas").value,disubmitOleh:SESSION.nama,dicatatOleh:dicatat,disahkanOleh:disah,
+      gambar1:borangGambar[1]||"",gambar2:borangGambar[2]||"",
       issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
         sektorPegawai:is.sektor,kawalanKPPD:is.kawalanKPPD,perluTindakSusul:is.perlu}))};
     (async()=>{try{
@@ -1334,7 +1480,8 @@ function submitDialog(){
   DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:LATEST_WEEK,tahun:2026,
     pengerusi,hari:$("#dHari").value,masa:$("#dMasa").value,tempat:$("#dTempat").value,
     kehadiran,ringkasan:$("#dRingkas").value,status:"Selesai",tarikhSubmit:"2026-08-09",
-    dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null});
+    dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null,
+    gambar1:borangGambar[1]||null,gambar2:borangGambar[2]||null});
   issues.forEach((is,idx)=>{
     const iId="I"+Date.now()+idx;
     DB.isu.push({id:iId,dialogId:dId,ppdId:SESSION.ppdId,kategoriId:is.kat,penerangan:is.desc,
@@ -1377,6 +1524,8 @@ function renderRekod(){
         <div class="di-desc">${i.penerangan}</div>
         ${i.tindakan?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px"><b>Tindakan:</b> ${i.tindakan}${i.sektorPegawai?` · <b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:''}</div>`:''}</div>`;
     });
+    const thumbs=gambarThumbsHtml(d);
+    if(thumbs)h+=`<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Lampiran Gambar</div>${thumbs}</div>`;
     if(fbs.length){
       h+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
         <div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Maklum Balas JPN</div>`;
