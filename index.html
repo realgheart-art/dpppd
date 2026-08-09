@@ -38,6 +38,8 @@ input,select,textarea{font-family:inherit;font-size:15px}
   border-radius:50%;background:radial-gradient(circle,rgba(184,134,11,.35),transparent 70%)}
 .crest{width:44px;height:44px;border-radius:11px;background:var(--brass);display:flex;align-items:center;
   justify-content:center;font-family:'Fraunces',serif;font-weight:700;color:var(--navy);font-size:22px;margin-bottom:16px}
+.crest--logo{background:#fff;border-radius:50%;overflow:hidden;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.crest--logo img{width:100%;height:100%;object-fit:cover;display:block}
 .login-head .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass-light);font-weight:600;margin-bottom:6px}
 .login-head h1{color:#fff;font-size:24px;line-height:1.2}
 .login-head p{color:#b8c6d6;font-size:13px;margin-top:6px}
@@ -63,6 +65,7 @@ input,select,textarea{font-family:inherit;font-size:15px}
   justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 2px 12px rgba(15,41,66,.18)}
 .topbar-left{display:flex;align-items:center;gap:12px}
 .topbar .crest{width:34px;height:34px;font-size:17px;border-radius:9px;margin:0}
+.topbar .crest--logo{border-radius:50%}
 .topbar-title{font-family:'Fraunces',serif;font-weight:600;font-size:16px;line-height:1.1}
 .topbar-title small{display:block;font-family:'Plus Jakarta Sans';font-weight:500;font-size:11px;color:var(--brass-light);letter-spacing:.04em}
 .topbar-right{display:flex;align-items:center;gap:14px}
@@ -231,7 +234,7 @@ tbody tr:last-child td{border-bottom:none}
 <div id="loginView">
   <div class="login-card">
     <div class="login-head">
-      <div class="crest">D</div>
+      <div class="crest crest--logo"><img src="logo.png" alt="Logo Dialog Prestasi PPD JPN Kedah"></div>
       <div class="eyebrow">JPN Kedah · Sektor S4PD</div>
       <h1>Dialog Prestasi PPD</h1>
       <p>Sistem Pemantauan Pelaksanaan, Isu &amp; Tindak Susul</p>
@@ -261,7 +264,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="topbar">
     <div class="topbar-left">
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
-      <div class="crest">D</div>
+      <div class="crest crest--logo"><img src="logo.png" alt="Logo"></div>
       <div class="topbar-title">Dialog Prestasi PPD<small>JPN KEDAH · SEKTOR S4PD</small></div>
     </div>
     <div class="topbar-right">
@@ -352,6 +355,28 @@ async function loadAllData(){
   LATEST_WEEK=DB.weeks.length?Math.max(...DB.weeks.map(w=>w.no)):1;
 }
 async function refreshData(){ if(!CONFIG.DEMO_MODE){ await loadAllData(); } }
+
+/* ============================================================
+   PRAMUAT LOGO — untuk kepala surat PDF (crop segi empat sama).
+   ============================================================ */
+let LOGO_PDF=null;
+(function preloadLogo(){
+  try{
+    const img=new Image();
+    img.crossOrigin="anonymous";
+    img.onload=()=>{
+      try{
+        const s=Math.min(img.width,img.height);
+        const c=document.createElement("canvas"); c.width=s; c.height=s;
+        const ctx=c.getContext("2d");
+        ctx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,s,s);
+        LOGO_PDF=c.toDataURL("image/png");
+      }catch(e){ LOGO_PDF=null; } // tainted (file://) — guna fallback crest
+    };
+    img.onerror=()=>{ LOGO_PDF=null; };
+    img.src="logo.png";
+  }catch(e){ LOGO_PDF=null; }
+})();
 
 
 /* ============================================================
@@ -519,6 +544,11 @@ function slaCheck(ts){
 /* ============================================================
    JANA PDF — Format rasmi LAMPIRAN A (DP PPD), potret A4
    ============================================================ */
+function drawCrestFallback(doc,NAVY,BRASS,M){
+  doc.setFillColor(...BRASS); doc.roundedRect(M,7,12,12,2,2,"F");
+  doc.setTextColor(...NAVY); doc.setFont("times","bold"); doc.setFontSize(15);
+  doc.text("D", M+6, 15.5, {align:"center"});
+}
 function generateLaporanPDF(dialogId, opts={}){
   if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
   const { jsPDF } = window.jspdf;
@@ -532,15 +562,18 @@ function generateLaporanPDF(dialogId, opts={}){
 
   /* ---- Kepala surat (bergambar/berformat) ---- */
   doc.setFillColor(...NAVY); doc.rect(0,0,pageW,26,"F");
-  doc.setFillColor(...BRASS); doc.roundedRect(M,7,12,12,2,2,"F");
-  doc.setTextColor(...NAVY); doc.setFont("times","bold"); doc.setFontSize(15);
-  doc.text("D", M+6, 15.5, {align:"center"});
+  if(LOGO_PDF){
+    try{ doc.addImage(LOGO_PDF,"PNG",M,5,16,16); }
+    catch(e){ drawCrestFallback(doc,NAVY,BRASS,M); }
+  }else{
+    drawCrestFallback(doc,NAVY,BRASS,M);
+  }
   doc.setTextColor(255,255,255);
   doc.setFont("helvetica","bold"); doc.setFontSize(12);
-  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH", M+16, 12.5);
+  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH", M+20, 12.5);
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
   doc.setTextColor(224,184,74);
-  doc.text("Sektor Perancangan & Pengurusan PPD (S4PD)", M+16, 18);
+  doc.text("Sektor Perancangan & Pengurusan PPD (S4PD)", M+20, 18);
 
   /* ---- LAMPIRAN A ---- */
   doc.setTextColor(...INK);
@@ -769,7 +802,9 @@ function renderDashboard(){
     <h2>Dashboard Pemantauan</h2>
     <p>Minggu ${LATEST_WEEK} · ${fmtDate(DB.weeks[LATEST_WEEK-1].tarikh)} · Tahun ${DB.config.TAHUN_SEMASA}</p></div>`;
 
-  h+=`<div class="demo-note"><b>Mod demo:</b> data ini terbenam dalam fail (dummy). Selepas GAS di-deploy, angka ini datang terus dari Google Sheets secara langsung.</div>`;
+  if(CONFIG.DEMO_MODE){
+    h+=`<div class="demo-note"><b>Mod demo:</b> data ini terbenam dalam fail (dummy). Selepas GAS di-deploy, angka ini datang terus dari Google Sheets secara langsung.</div>`;
+  }
 
   h+=`<div class="stat-grid">
     <div class="stat-card ${submittedThisWeek===totalPPD?'ok':'warn'}">
