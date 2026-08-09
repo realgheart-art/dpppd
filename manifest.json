@@ -1,0 +1,13 @@
+{
+  "name": "Dialog Prestasi PPD — JPN Kedah",
+  "short_name": "Dialog Prestasi",
+  "description": "Sistem Pemantauan Pelaksanaan, Isu & Tindak Susul Dialog Prestasi PPD",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f2942",
+  "theme_color": "#0f2942",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
