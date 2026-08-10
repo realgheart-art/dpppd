@@ -1,5 +1,5 @@
 // Service Worker — Dialog Prestasi PPD
-const CACHE = "dialog-prestasi-v8";
+const CACHE = "dialog-prestasi-v9";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./logo.png"];
 
 self.addEventListener("install", (e) => {
@@ -17,12 +17,32 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Network-first for GAS API calls, cache-first for app shell
-  if (e.request.url.includes("script.google.com")) {
-    e.respondWith(fetch(e.request).catch(() => new Response("{}", { headers: { "Content-Type": "application/json" } })));
+  const url = e.request.url;
+
+  // GAS API — sentiasa dari rangkaian, jangan cache
+  if (url.includes("script.google.com")) {
+    e.respondWith(
+      fetch(e.request).catch(
+        () => new Response("{}", { headers: { "Content-Type": "application/json" } })
+      )
+    );
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then((r) => r || fetch(e.request))
-  );
+
+  // HTML / navigasi — NETWORK-FIRST supaya kemaskini kod & config (API_URL) terus berkuat kuasa
+  if (e.request.mode === "navigate" || url.endsWith("/index.html") || url.endsWith("/")) {
+    e.respondWith(
+      fetch(e.request)
+        .then((r) => {
+          const copy = r.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          return r;
+        })
+        .catch(() => caches.match(e.request).then((r) => r || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Aset lain (logo, manifest) — cache-first
+  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
 });
