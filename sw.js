@@ -1,5 +1,5 @@
 // Service Worker — Dialog Prestasi PPD
-const CACHE = "dialog-prestasi-v7";
+const CACHE = "dialog-prestasi-v8";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./logo.png"];
 
 self.addEventListener("install", (e) => {
