@@ -307,7 +307,7 @@ tbody tr:last-child td{border-bottom:none}
    Bila DEMO_MODE = false, semua fungsi guna fetch() ke GAS.
    ============================================================ */
 const CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbxL3Q0XM05cIxjHB4Atqyhlzl-d7pwJSAtP67zscWNSeI-qN1yuvqG8xHH4HeBmCqop0A/exec", // ← ganti selepas deploy GAS
+  API_URL: "https://script.google.com/macros/s/AKfycbwApT-NiT2tqNOTv6yA1iWQUAO1l2cBW_j7TLJcHo9jivgWE9ZsHWQZBQFYM_-5yGB68g/exec", // ← ganti selepas deploy GAS
   DEMO_MODE: false,   // true = guna data terbenam di bawah (tiada backend perlu)
 };
 
@@ -801,15 +801,20 @@ async function doLogin(){
     enterApp(user); // DEMO: sebarang kata laluan diterima
     return;
   }
-  // ---- MOD LIVE: sahkan melalui GAS (SHA-256) + muat data ----
+  // ---- MOD LIVE: sahkan + muat data dalam SATU panggilan (lebih laju) ----
   if(!u||!pass){toast("Sila isi nama pengguna & kata laluan");return;}
   try{
-    if(btn){btn.disabled=true;btn.textContent="Mengesahkan…";}
-    const user=await apiPost("login",{username:u,password:pass});
+    if(btn){btn.disabled=true;btn.textContent="Log masuk…";}
+    const res=await apiPost("login",{username:u,password:pass}); // {user, init}
+    const user=res.user||res; // sokong format lama jika perlu
     const sess={username:String(user.Username||u).toLowerCase(),nama:user.Nama,
       peranan:user.Peranan,ppdId:user.PPD_ID&&user.PPD_ID!=="-"?user.PPD_ID:null};
-    if(btn)btn.textContent="Memuatkan data…";
-    await loadAllData();
+    if(res.init){
+      mapFromSheets(res.init);
+      LATEST_WEEK=mingguSemasa(new Date());
+    }else{
+      await loadAllData(); // fallback jika GAS versi lama
+    }
     enterApp(sess);
   }catch(err){
     toast(err.message||"Log masuk gagal");
