@@ -371,7 +371,7 @@ function mapFromSheets(raw){
 async function loadAllData(){
   const raw=await apiGet("init");
   mapFromSheets(raw);
-  LATEST_WEEK=DB.weeks.length?Math.max(...DB.weeks.map(w=>w.no)):1;
+  LATEST_WEEK=mingguSemasa(new Date()); // minggu semasa ikut tarikh, bukan data sedia ada
 }
 async function refreshData(){ if(!CONFIG.DEMO_MODE){ await loadAllData(); } }
 
@@ -548,6 +548,16 @@ const ppdName=(id)=>{const p=DB.ppd.find(x=>x.id===id);return p?p.nama:id;};
 const katName=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama:id;};
 const katShort=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama.split("(")[0].trim():id;};
 const fmtDate=(s)=>{if(!s)return"—";const d=new Date(s);return d.toLocaleDateString("ms-MY",{day:"2-digit",month:"short",year:"numeric"});};
+/* --- tarikh & minggu semasa (untuk sistem kosong / rekod baharu) --- */
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function mingguSemasa(d){ // sepadan dengan GAS mingguDalamTahun()
+  const onejan=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+}
+function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
+  const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
+  return w?w.tarikh:todayISO();
+}
 function toast(msg){const t=$("#toast");$("#toastMsg").textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
 function statusBadge(st){
   const m={"Selesai":"b-ok","Dalam Tindakan":"b-progress","Belum Mula":"b-pending"};
@@ -889,7 +899,7 @@ function renderDashboard(){
 
   let h=`<div class="page-head"><div class="eyebrow">Ringkasan Eksekutif</div>
     <h2>Dashboard Pemantauan</h2>
-    <p>Minggu ${LATEST_WEEK} · ${fmtDate(DB.weeks[LATEST_WEEK-1].tarikh)} · Tahun ${DB.config.TAHUN_SEMASA}</p></div>`;
+    <p>Minggu ${LATEST_WEEK} · ${fmtDate(latestWeekTarikh())} · Tahun ${DB.config.TAHUN_SEMASA}</p></div>`;
 
   if(CONFIG.DEMO_MODE){
     h+=`<div class="demo-note"><b>Mod demo:</b> data ini terbenam dalam fail (dummy). Selepas GAS di-deploy, angka ini datang terus dari Google Sheets secara langsung.</div>`;
@@ -1304,7 +1314,7 @@ let issueCount=0;
 function renderBorang(){
   const alreadySubmitted=DB.dialog.find(d=>d.ppdId===SESSION.ppdId&&d.minggu===LATEST_WEEK);
   let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div><h2>Hantar Laporan Dialog Prestasi</h2>
-    <p>Minggu ${LATEST_WEEK} · ${fmtDate(DB.weeks[LATEST_WEEK-1].tarikh)}</p></div>`;
+    <p>Minggu ${LATEST_WEEK} · ${fmtDate(latestWeekTarikh())}</p></div>`;
 
   if(alreadySubmitted){
     h+=`<div class="banner"><span class="b-ico">✓</span><div class="banner-text">
@@ -1316,7 +1326,7 @@ function renderBorang(){
   h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
     <b>Peringatan:</b> Laporan minggu ini belum dihantar. Tarikh akhir: <b>${DB.config.HARI_TARIKH_AKHIR} minggu ini</b>.</div></div>`;
 
-  const tarikhDefault=DB.weeks[LATEST_WEEK-1].tarikh;
+  const tarikhDefault=latestWeekTarikh();
   h+=`<div class="card"><div class="card-head"><h3>Butiran Sesi</h3>
     <div class="sub">Mengikut format rasmi LAMPIRAN A (DP PPD)</div></div><div class="card-body">
     <div class="form-row">
