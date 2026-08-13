@@ -617,9 +617,21 @@ async function generateLaporanPDF(dialogId, opts={}){
   const { jsPDF } = window.jspdf;
   const d=DB.dialog.find(x=>x.id===dialogId);
   if(!d){toast("Rekod dialog tidak dijumpai");return;}
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  await tulisLaporanKeDoc(doc,d,{pertama:true});
+  const fnamePPD0=ppdName(d.ppdId).replace(/[^a-zA-Z0-9]/g,"_");
+  const filename0=`Laporan_DP_${fnamePPD0}_M${d.minggu}_${d.tahun}.pdf`;
+  if(opts.returnDoc)return doc;
+  doc.save(filename0);
+  toast("Laporan PDF dijana");
+}
+
+/* Tulis SATU laporan ke dalam dokumen jsPDF sedia ada (guna semula untuk PDF gabungan) */
+async function tulisLaporanKeDoc(doc, d, opts={}){
+  const dialogId=d.id;
   const issues=DB.isu.filter(i=>i.dialogId===dialogId);
   const gambarData=await resolveGambar(d);   // [dataUrl|null, dataUrl|null]
-  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  if(!opts.pertama) doc.addPage();
   const pageW=doc.internal.pageSize.getWidth();   // 210
   const M=18;                                     // margin
   const NAVY=[15,41,66], BRASS=[184,134,11], INK=[26,36,48];
@@ -778,10 +790,117 @@ async function generateLaporanPDF(dialogId, opts={}){
 
   const fnamePPD=ppdName(d.ppdId).replace(/[^a-zA-Z0-9]/g,"_");
   const filename=`Laporan_DP_${fnamePPD}_M${d.minggu}_${d.tahun}.pdf`;
-  if(opts.returnDoc)return doc;
-  doc.save(filename);
-  toast("Laporan PDF dijana");
+  return {doc, filename};
 }
+/* ============================================================
+   PDF GABUNGAN — semua laporan mengikut minggu & pilihan PPD
+   ============================================================ */
+function laporanTerpilih(minggu, ppdId){
+  let list = dialogAktif(DB.dialog).filter(d=>Number(d.minggu)===Number(minggu));
+  if(ppdId) list = list.filter(d=>samePpd(d.ppdId,ppdId));
+  // jika ada pendua, ambil laporan terkini sahaja bagi setiap PPD
+  const ikutPpd={};
+  list.forEach(d=>{
+    const k=normId(d.ppdId);
+    if(!ikutPpd[k] || String(d.tarikhSubmit||"").localeCompare(String(ikutPpd[k].tarikhSubmit||""))>0) ikutPpd[k]=d;
+  });
+  const susunan=DB.ppd.map(p=>normId(p.id));
+  return Object.values(ikutPpd).sort((a,b)=>susunan.indexOf(normId(a.ppdId))-susunan.indexOf(normId(b.ppdId)));
+}
+
+async function janaPDFGabungan(minggu, ppdId){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
+  const senarai=laporanTerpilih(minggu,ppdId);
+  if(!senarai.length){toast("Tiada laporan untuk pilihan ini");return;}
+  const btn=$("#btnJana");
+  if(btn){btn.disabled=true;btn.textContent="Menjana PDF…";}
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    mukaDepanGabungan(doc,minggu,ppdId,senarai);
+    for(const d of senarai){
+      if(btn)btn.textContent=`Menjana… (${senarai.indexOf(d)+1}/${senarai.length})`;
+      await tulisLaporanKeDoc(doc,d,{pertama:false});
+    }
+    const tag = ppdId ? ppdName(ppdId).replace(/[^a-zA-Z0-9]/g,"_") : "Semua_PPD";
+    doc.save(`Laporan_DP_${tag}_M${minggu}_${DB.config.TAHUN_SEMASA}.pdf`);
+    toast(`PDF gabungan dijana — ${senarai.length} laporan`);
+  }catch(err){
+    toast("Gagal menjana PDF gabungan");
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="⬇ Jana PDF Gabungan";}
+  }
+}
+
+/* Muka depan ringkasan untuk PDF gabungan */
+function mukaDepanGabungan(doc,minggu,ppdId,senarai){
+  const pageW=doc.internal.pageSize.getWidth();
+  const ph=doc.internal.pageSize.getHeight();
+  const M=18, NAVY=[15,41,66], BRASS=[184,134,11], INK=[26,36,48];
+  doc.setFillColor(...NAVY); doc.rect(0,0,pageW,58,"F");
+  if(LOGO_PDF){try{doc.addImage(LOGO_PDF,"PNG",pageW/2-13,8,26,26);}catch(e){}}
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH", pageW/2, 42, {align:"center"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.setTextColor(224,184,74);
+  doc.text("Sektor Perancangan & Pengurusan PPD (S4PD)", pageW/2, 49, {align:"center"});
+
+  doc.setTextColor(...INK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(17);
+  doc.text("HIMPUNAN LAPORAN DIALOG PRESTASI PPD", pageW/2, 74, {align:"center"});
+  doc.setDrawColor(...BRASS); doc.setLineWidth(0.6); doc.line(M,79,pageW-M,79);
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const skop = ppdId ? ppdName(ppdId) : `Semua PPD (${DB.ppd.length} daerah)`;
+  let y=90;
+  [["Minggu", `${minggu} / ${DB.config.TAHUN_SEMASA}`],
+   ["Skop", skop],
+   ["Bilangan laporan", `${senarai.length} laporan`],
+   ["Tarikh jana", fmtDate(todayISO())]].forEach(([k,v])=>{
+    doc.setFont("helvetica","bold"); doc.text(k, M, y);
+    doc.setFont("helvetica","normal"); doc.text(": "+v, M+42, y);
+    y+=8;
+  });
+
+  // Jadual kandungan
+  y+=6;
+  const rows=senarai.map((d,idx)=>{
+    const nIsu=DB.isu.filter(i=>i.dialogId===d.id).length;
+    const luar=DB.isu.filter(i=>i.dialogId===d.id && (i.kawalanKPPD||"Ya")==="Tidak").length;
+    return [String(idx+1), ppdName(d.ppdId), fmtDate(d.tarikh), String(nIsu), luar?String(luar):"—"];
+  });
+  doc.autoTable({
+    startY:y,
+    head:[["BIL.","PPD","TARIKH SESI","BIL. ISU","LUAR KAWALAN KPPD"]],
+    body:rows,
+    margin:{left:M,right:M},
+    styles:{font:"helvetica",fontSize:9.5,cellPadding:2.5,lineColor:[120,120,120],lineWidth:0.2,textColor:INK},
+    headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:"bold",halign:"center",fontSize:9},
+    columnStyles:{0:{cellWidth:14,halign:"center"},2:{cellWidth:32,halign:"center"},
+                  3:{cellWidth:22,halign:"center"},4:{cellWidth:36,halign:"center"}},
+    theme:"grid",
+  });
+
+  // PPD belum hantar (jika skop semua)
+  if(!ppdId){
+    const hantar=new Set(senarai.map(d=>normId(d.ppdId)));
+    const belum=DB.ppd.filter(p=>!hantar.has(normId(p.id))).map(p=>p.nama);
+    let yy=doc.lastAutoTable.finalY+10;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...NAVY);
+    doc.text(`Status pematuhan: ${senarai.length}/${DB.ppd.length} PPD telah menghantar`, M, yy);
+    if(belum.length){
+      yy+=6;
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(150,30,30);
+      const lines=doc.splitTextToSize("Belum hantar: "+belum.join(", "), pageW-2*M);
+      doc.text(lines, M, yy);
+    }
+    doc.setTextColor(...INK);
+  }
+
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text("Dijana melalui Sistem Pemantauan Dialog Prestasi PPD · JPN Kedah", pageW/2, ph-8, {align:"center"});
+}
+
 /* Dapatkan gambar sebagai data URL untuk PDF (demo terus · live via GAS) */
 async function resolveGambar(d){
   const out=[];
@@ -854,6 +973,7 @@ const NAV = {
       {id:"senarai-isu",ico:"☰",label:"Senarai Isu"},
       {id:"tindak-susul",ico:"◎",label:"Tindak Susul"},
       {id:"penyelarasan",ico:"⇪",label:"Penyelarasan JPN"},
+      {id:"muat-turun",ico:"⬇",label:"Muat Turun Laporan"},
     ]},
     {group:"Pentadbiran",items:[
       {id:"maklum-balas",ico:"✎",label:"Maklum Balas"},
@@ -889,7 +1009,7 @@ function navigate(page){
   $("#sidebar").classList.remove("open");
   const R={dashboard:renderDashboard,pematuhan:renderPematuhan,"senarai-isu":renderSenaraiIsu,
     "tindak-susul":renderTindakSusul,"maklum-balas":renderMaklumBalas,admin:renderAdmin,
-    penyelarasan:renderPenyelarasan,
+    penyelarasan:renderPenyelarasan,"muat-turun":renderMuatTurun,
     borang:renderBorang,rekod:renderRekod,"tindak-susul-ppd":renderTindakSusulPPD};
   (R[page]||(()=>{$("#main").innerHTML="";}))();
   $("#main").scrollTop=0;
@@ -1247,6 +1367,80 @@ function tandaSemuaPengarah(){
   }
   senarai.forEach(d=>{d.dihantarKePengarah=true;d.tarikhHantarPengarah="2026-08-09";});
   buildSidebar();renderPenyelarasan();toast(`Semua laporan Minggu ${LATEST_WEEK} ditanda dihantar`);
+}
+
+/* ============================================================
+   JPN: MUAT TURUN LAPORAN (PDF gabungan ikut minggu & PPD)
+   ============================================================ */
+function renderMuatTurun(){
+  // senarai minggu yang ada laporan (menurun), sertakan minggu semasa
+  const set=new Set(dialogAktif(DB.dialog).map(d=>Number(d.minggu)));
+  set.add(Number(LATEST_WEEK));
+  const minggu=[...set].filter(n=>n).sort((a,b)=>b-a);
+
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Muat Turun Laporan</h2>
+    <p>Jana satu fail PDF mengandungi laporan semua PPD — sesuai untuk mesyuarat & simpanan rekod</p></div>`;
+
+  h+=`<div class="card"><div class="card-head"><h3>Pilihan Muat Turun</h3></div><div class="card-body">
+    <div class="form-row">
+      <div class="form-field"><label>Minggu <span class="req">*</span></label>
+        <select id="mtMinggu" onchange="kemaskiniPratonton()">
+          ${minggu.map(n=>`<option value="${n}"${Number(n)===Number(LATEST_WEEK)?" selected":""}>Minggu ${n}</option>`).join("")}
+        </select></div>
+      <div class="form-field"><label>PPD</label>
+        <select id="mtPpd" onchange="kemaskiniPratonton()">
+          <option value="">Semua PPD</option>
+          ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}
+        </select></div>
+    </div>
+    <div id="mtPratonton"></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-navy" id="btnJana" onclick="klikJana()" style="padding:12px 24px">⬇ Jana PDF Gabungan</button>
+    </div>
+    <div class="help" style="margin-top:10px">PDF gabungan bermula dengan muka depan ringkasan (senarai kandungan &
+      status pematuhan), diikuti laporan penuh setiap PPD dalam format rasmi LAMPIRAN A.</div>
+  </div></div>`;
+  $("#main").innerHTML=h;
+  kemaskiniPratonton();
+}
+function kemaskiniPratonton(){
+  const wk=$("#mtMinggu")?$("#mtMinggu").value:LATEST_WEEK;
+  const pid=$("#mtPpd")?$("#mtPpd").value:"";
+  const senarai=laporanTerpilih(wk,pid);
+  const hantar=new Set(senarai.map(d=>normId(d.ppdId)));
+  const belum=pid?[]:DB.ppd.filter(p=>!hantar.has(normId(p.id)));
+  let h="";
+  if(!senarai.length){
+    h=`<div class="empty" style="padding:30px 20px"><div class="ico">☰</div>Tiada laporan untuk pilihan ini.</div>`;
+  }else{
+    h=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:1;min-width:170px;background:var(--ok-bg);border-radius:10px;padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.05em">Akan disertakan</div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;color:var(--navy);font-weight:600">${senarai.length} laporan</div></div>
+      ${belum.length?`<div style="flex:1;min-width:170px;background:var(--danger-bg);border-radius:10px;padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.05em">Belum hantar</div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;color:var(--navy);font-weight:600">${belum.length} PPD</div></div>`:""}
+    </div>`;
+    h+=`<div class="scroll-x"><table><thead><tr><th>Bil.</th><th>PPD</th><th>Tarikh Sesi</th>
+      <th class="t-center">Bil. Isu</th><th class="t-center">Luar Kawalan KPPD</th></tr></thead><tbody>`;
+    senarai.forEach((d,i)=>{
+      const nIsu=DB.isu.filter(x=>x.dialogId===d.id).length;
+      const luar=DB.isu.filter(x=>x.dialogId===d.id&&(x.kawalanKPPD||"Ya")==="Tidak").length;
+      h+=`<tr><td>${i+1}</td><td><b>${ppdName(d.ppdId)}</b></td><td>${fmtDate(d.tarikh)}</td>
+        <td class="t-center">${nIsu}</td>
+        <td class="t-center">${luar?`<span class="badge b-pending">${luar}</span>`:'<span class="badge b-neutral">—</span>'}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    if(belum.length){
+      h+=`<div style="margin-top:12px;font-size:12.5px;color:var(--danger)">
+        <b>Belum hantar:</b> ${belum.map(p=>p.nama).join(", ")}</div>`;
+    }
+  }
+  $("#mtPratonton").innerHTML=h;
+}
+function klikJana(){
+  const wk=$("#mtMinggu").value, pid=$("#mtPpd").value;
+  janaPDFGabungan(wk,pid);
 }
 
 /* ============================================================
