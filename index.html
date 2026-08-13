@@ -557,7 +557,13 @@ function ppdIdTakPadan(){
 }
 const katName=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama:id;};
 const katShort=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama.split("(")[0].trim():id;};
-const fmtDate=(s)=>{if(!s)return"—";const d=new Date(s);return d.toLocaleDateString("ms-MY",{day:"2-digit",month:"short",year:"numeric"});};
+const BULAN_MS=["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
+const fmtDate=(s)=>{
+  if(!s)return"—";
+  const d=new Date(s);
+  if(isNaN(d.getTime()))return String(s);
+  return `${String(d.getDate()).padStart(2,"0")} ${BULAN_MS[d.getMonth()]} ${d.getFullYear()}`;
+};
 /* --- tarikh & minggu semasa (untuk sistem kosong / rekod baharu) --- */
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function mingguSemasa(d){ // sepadan dengan GAS mingguDalamTahun()
