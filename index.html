@@ -355,7 +355,8 @@ function mapFromSheets(raw){
     ringkasan:r.RingkasanSesi,status:r.StatusSesi,tarikhSubmit:dstr(r.TarikhSubmit),
     dicatatOleh:r.DicatatOleh,disahkanOleh:r.DisahkanOleh,
     dihantarKePengarah:yn(r.DihantarKePengarah),tarikhHantarPengarah:dstr(r.TarikhHantarPengarah),
-    gambar1:r.Gambar1||null,gambar2:r.Gambar2||null}));
+    gambar1:r.Gambar1||null,gambar2:r.Gambar2||null,
+    tarikhBatal:dstr(r.TarikhBatal),dibatalkanOleh:r.DibatalkanOleh||null}));
   DB.isu=(raw.isu||[]).map(r=>({id:r.IsuID,dialogId:r.DialogID,ppdId:r.PPD_ID,kategoriId:r.KategoriID,
     penerangan:r.Penerangan,tindakan:r.Tindakan,sektorPegawai:r.SektorPegawai,
     perluTindakSusul:yn(r.PerluTindakSusul),tarikh:dstr(r.TarikhDicatat),
@@ -544,7 +545,16 @@ function hariMelayu(dateStr){
    ============================================================ */
 const $=(s)=>document.querySelector(s);
 let SESSION=null, CURRENT_PAGE=null, LATEST_WEEK=4;
-const ppdName=(id)=>{const p=DB.ppd.find(x=>x.id===id);return p?p.nama:id;};
+const normId=(v)=>String(v==null?"":v).trim().toUpperCase();
+const samePpd=(a,b)=>normId(a)===normId(b);
+const ppdName=(id)=>{const p=DB.ppd.find(x=>samePpd(x.id,id));return p?p.nama:id;};
+/* PPD_ID dalam laporan yang tiada dalam tab PPD (punca 'Belum' walaupun ada laporan) */
+function ppdIdTakPadan(){
+  const sah=new Set(DB.ppd.map(p=>normId(p.id)));
+  const jumpa=new Set();
+  dialogAktif(DB.dialog).forEach(d=>{ if(!sah.has(normId(d.ppdId))) jumpa.add(d.ppdId); });
+  return [...jumpa];
+}
 const katName=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama:id;};
 const katShort=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama.split("(")[0].trim():id;};
 const fmtDate=(s)=>{if(!s)return"—";const d=new Date(s);return d.toLocaleDateString("ms-MY",{day:"2-digit",month:"short",year:"numeric"});};
@@ -865,7 +875,7 @@ function buildSidebar(){
     g.items.forEach(it=>{
       let badge="";
       if(it.id==="tindak-susul"){const n=DB.tindakSusul.filter(t=>t.status!=="Selesai").length;badge=`<span class="nav-badge">${n}</span>`;}
-      if(it.id==="penyelarasan"){const n=DB.isu.filter(i=>i.kawalanKPPD==="Tidak").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
+      if(it.id==="penyelarasan"){const n=isuAktif().filter(i=>i.kawalanKPPD==="Tidak").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
       if(it.id==="tindak-susul-ppd"){const n=DB.tindakSusul.filter(t=>t.ppdId===SESSION.ppdId&&t.status!=="Selesai").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
       h+=`<button class="nav-item" data-page="${it.id}" onclick="navigate('${it.id}')">
         <span class="nav-ico">${it.ico}</span>${it.label}${badge}</button>`;
@@ -890,15 +900,16 @@ function toggleSidebar(){$("#sidebar").classList.toggle("open");}
    JPN: DASHBOARD
    ============================================================ */
 function renderDashboard(){
-  const submittedThisWeek = DB.dialog.filter(d=>d.minggu===LATEST_WEEK).length;
+  const sahPpd=new Set(DB.ppd.map(x=>normId(x.id)));
+  const submittedThisWeek = ppdHantarMinggu(LATEST_WEEK).size;
   const totalPPD = DB.ppd.length;
   const outstanding = DB.tindakSusul.filter(t=>t.status!=="Selesai").length;
   const overdue = DB.tindakSusul.filter(t=>t.status!=="Selesai"&&new Date("2026-08-09")>new Date(t.tarikhSasaran)).length;
-  const totalIsu = DB.isu.length;
+  const totalIsu = isuAktif().length;
 
   // isu by kategori
   const byKat={};
-  DB.isu.forEach(i=>{byKat[i.kategoriId]=(byKat[i.kategoriId]||0)+1;});
+  isuAktif().forEach(i=>{byKat[i.kategoriId]=(byKat[i.kategoriId]||0)+1;});
   const katSorted=Object.entries(byKat).sort((a,b)=>b[1]-a[1]);
   const maxKat=Math.max(...Object.values(byKat));
 
@@ -910,6 +921,14 @@ function renderDashboard(){
     h+=`<div class="demo-note"><b>Mod demo:</b> data ini terbenam dalam fail (dummy). Selepas GAS di-deploy, angka ini datang terus dari Google Sheets secara langsung.</div>`;
   }
 
+  const takPadan=ppdIdTakPadan();
+  if(takPadan.length){
+    h+=`<div class="banner" style="background:var(--danger-bg);border-color:var(--danger)"><span class="b-ico">!</span><div class="banner-text" style="color:#8c2b20"><b>Amaran data:</b> ${takPadan.length} kod PPD dalam laporan tidak sepadan dengan tab <b>PPD</b>: <b>${takPadan.join(", ")}</b>. Laporan ini tidak dapat dipadankan, jadi status kekal "Belum". Betulkan lajur <b>PPD_ID</b> dalam tab <b>Users</b> supaya sama dengan tab <b>PPD</b>.</div></div>`;
+  }
+  const pendua=penduaMinggu(LATEST_WEEK);
+  if(pendua.length){
+    h+=`<div class="banner"><span class="b-ico">!</span><div class="banner-text"><b>Laporan pendua:</b> ${pendua.join(", ")} menghantar lebih daripada satu laporan bagi Minggu ${LATEST_WEEK}. Kiraan hanya mengambil <b>satu PPD sekali</b>, dan paparan menggunakan laporan terkini. PPD berkenaan boleh membatalkan laporan berlebihan di "Rekod Dialog Saya".</div></div>`;
+  }
   h+=`<div class="stat-grid">
     <div class="stat-card ${submittedThisWeek===totalPPD?'ok':'warn'}">
       <div class="lbl">Hantar Minggu ${LATEST_WEEK}</div>
@@ -930,7 +949,7 @@ function renderDashboard(){
     <button class="btn btn-ghost btn-sm" onclick="navigate('pematuhan')">Lihat Penuh →</button></div>
     <div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th><th class="t-center">Status</th><th class="t-center">Bil. Isu</th><th>Tarikh Submit</th></tr></thead><tbody>`;
   DB.ppd.forEach(p=>{
-    const d=DB.dialog.find(x=>x.ppdId===p.id&&x.minggu===LATEST_WEEK);
+    const d=dialogTerkini(p.id,LATEST_WEEK);
     const nIsu=d?DB.isu.filter(i=>i.dialogId===d.id).length:0;
     h+=`<tr><td><b>${p.nama}</b></td>
       <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>
@@ -957,6 +976,10 @@ function renderDashboard(){
 function renderPematuhan(){
   let h=`<div class="page-head"><div class="eyebrow">Pemantauan</div><h2>Status Pematuhan Mingguan</h2>
     <p>Pelaksanaan Dialog Prestasi setiap PPD mengikut minggu</p></div>`;
+  const takPadan=ppdIdTakPadan();
+  if(takPadan.length){
+    h+=`<div class="banner" style="background:var(--danger-bg);border-color:var(--danger)"><span class="b-ico">!</span><div class="banner-text" style="color:#8c2b20"><b>Amaran data:</b> ${takPadan.length} kod PPD dalam laporan tidak sepadan dengan tab <b>PPD</b>: <b>${takPadan.join(", ")}</b>. Laporan ini tidak dapat dipadankan, jadi status kekal "Belum". Betulkan lajur <b>PPD_ID</b> dalam tab <b>Users</b> supaya sama dengan tab <b>PPD</b>.</div></div>`;
+  }
   h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th>`;
   DB.weeks.forEach(w=>h+=`<th class="t-center">Minggu ${w.no}<br><span style="font-weight:500;font-size:10px;color:#aab">${fmtDate(w.tarikh)}</span></th>`);
   h+=`<th class="t-center">Kadar</th></tr></thead><tbody>`;
@@ -964,7 +987,7 @@ function renderPematuhan(){
     let hantar=0;
     let cells="";
     DB.weeks.forEach(w=>{
-      const d=DB.dialog.find(x=>x.ppdId===p.id&&x.minggu===w.no);
+      const d=dialogTerkini(p.id,w.no);
       if(d)hantar++;
       cells+=`<td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>`;
     });
@@ -975,7 +998,8 @@ function renderPematuhan(){
   // footer totals
   h+=`</tbody><tfoot><tr style="background:#fafbfc;font-weight:700"><td>Jumlah Hantar</td>`;
   DB.weeks.forEach(w=>{
-    const n=DB.dialog.filter(d=>d.minggu===w.no).length;
+    const sahSet=new Set(DB.ppd.map(x=>normId(x.id)));
+    const n=ppdHantarMinggu(w.no).size;
     h+=`<td class="t-center"><b style="color:var(--navy)">${n}/${DB.ppd.length}</b></td>`;
   });
   h+=`<td></td></tr></tfoot></table></div></div></div>`;
@@ -1008,7 +1032,7 @@ function renderSenaraiIsu(){
 }
 function filterIsu(){
   const fk=$("#fKat").value,fp=$("#fPpd").value,fw=$("#fWeek").value,fc=$("#fKawalan").value;
-  let rows=DB.isu.filter(i=>{
+  let rows=isuAktif().filter(i=>{
     if(fk&&i.kategoriId!==fk)return false;
     if(fp&&i.ppdId!==fp)return false;
     if(fc&&(i.kawalanKPPD||"Ya")!==fc)return false;
@@ -1082,7 +1106,7 @@ function renderMaklumBalas(){
 }
 function renderMBList(){
   const fp=$("#fbPpd")?$("#fbPpd").value:"";
-  let dialogs=[...DB.dialog].filter(d=>!fp||d.ppdId===fp).sort((a,b)=>b.minggu-a.minggu);
+  let dialogs=dialogAktif(DB.dialog).filter(d=>!fp||d.ppdId===fp).sort((a,b)=>b.minggu-a.minggu);
   let h="";
   dialogs.slice(0,20).forEach(d=>{
     const nIsu=DB.isu.filter(i=>i.dialogId===d.id).length;
@@ -1136,7 +1160,7 @@ function renderPenyelarasan(){
     <p>Perkara di luar kawalan KPPD & status penghantaran laporan kepada Pengarah Pendidikan</p></div>`;
 
   // ---- Bahagian A: perkara luar kawalan KPPD ----
-  const luar=DB.isu.filter(i=>i.kawalanKPPD==="Tidak");
+  const luar=isuAktif().filter(i=>i.kawalanKPPD==="Tidak");
   const belumMaklum=luar.filter(i=>i.statusMakluman!=="Telah Dimaklumkan").length;
   h+=`<div class="stat-grid">
     <div class="stat-card warn"><div class="lbl">Perkara Luar Kawalan KPPD</div>
@@ -1144,7 +1168,7 @@ function renderPenyelarasan(){
     <div class="stat-card danger"><div class="lbl">Tindakan Belum Dimaklumkan</div>
       <div class="val">${belumMaklum}</div><div class="sub">kepada sektor/pegawai</div></div>
     <div class="stat-card ok"><div class="lbl">Laporan Dihantar ke Pengarah</div>
-      <div class="val">${DB.dialog.filter(d=>d.dihantarKePengarah).length}<span style="font-size:20px;color:var(--muted)">/${DB.dialog.length}</span></div>
+      <div class="val">${dialogAktif(DB.dialog).filter(d=>d.dihantarKePengarah).length}<span style="font-size:20px;color:var(--muted)">/${dialogAktif(DB.dialog).length}</span></div>
       <div class="sub">sesi dialog</div></div>
   </div>`;
 
@@ -1177,7 +1201,7 @@ function renderPenyelarasan(){
     <div class="card-body flush"><div class="scroll-x"><table><thead><tr>
     <th>PPD</th><th>Minggu</th><th class="t-center">Luar Kawalan KPPD</th>
     <th class="t-center">Status ke Pengarah</th><th class="t-center">Tindakan</th></tr></thead><tbody>`;
-  [...DB.dialog].sort((a,b)=>b.minggu-a.minggu).forEach(d=>{
+  dialogAktif(DB.dialog).sort((a,b)=>b.minggu-a.minggu).forEach(d=>{
     const nLuar=DB.isu.filter(i=>i.dialogId===d.id&&i.kawalanKPPD==="Tidak").length;
     h+=`<tr><td><b>${ppdName(d.ppdId)}</b></td><td><span class="pill">M${d.minggu}</span></td>
       <td class="t-center">${nLuar?`<span class="badge b-pending">${nLuar} perkara</span>`:'<span class="badge b-neutral">—</span>'}</td>
@@ -1212,7 +1236,7 @@ function tandaPengarah(dialogId){
   buildSidebar();renderPenyelarasan();toast("Laporan ditanda dihantar kepada Pengarah");
 }
 function tandaSemuaPengarah(){
-  const senarai=DB.dialog.filter(d=>d.minggu===LATEST_WEEK&&!d.dihantarKePengarah);
+  const senarai=DB.dialog.filter(d=>d.minggu===LATEST_WEEK&&!d.dihantarKePengarah&&!isDibatalkan(d));
   if(!senarai.length){toast("Tiada laporan menunggu penghantaran");return;}
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{
@@ -1316,27 +1340,73 @@ function saveConfig(){
    PPD: BORANG HANTAR DIALOG
    ============================================================ */
 let issueCount=0;
+let EDIT_ID=null; // jika tidak null, borang dalam mod kemaskini
+const isDibatalkan=(d)=>String(d.status||"").toLowerCase()==="dibatalkan";
+const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d));
+/* PPD unik yang menghantar laporan aktif bagi sesuatu minggu (elak kiraan berganda) */
+function ppdHantarMinggu(wk){
+  const sah=new Set(DB.ppd.map(x=>normId(x.id)));
+  const set=new Set();
+  DB.dialog.forEach(d=>{
+    if(Number(d.minggu)!==Number(wk)) return;
+    if(isDibatalkan(d)) return;
+    const id=normId(d.ppdId);
+    if(sah.has(id)) set.add(id);
+  });
+  return set;
+}
+/* laporan aktif terkini bagi satu PPD/minggu (jika ada pendua, ambil yang terbaru) */
+function dialogTerkini(ppdId,wk){
+  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&!isDibatalkan(d));
+  if(!senarai.length) return null;
+  return senarai.sort((a,b)=>String(b.tarikhSubmit||'').localeCompare(String(a.tarikhSubmit||'')))[0];
+}
+/* bilangan laporan pendua (PPD hantar >1 kali dalam minggu sama) */
+function penduaMinggu(wk){
+  const kira={};
+  DB.dialog.forEach(d=>{
+    if(Number(d.minggu)!==Number(wk)||isDibatalkan(d)) return;
+    const id=normId(d.ppdId); kira[id]=(kira[id]||0)+1;
+  });
+  return Object.keys(kira).filter(k=>kira[k]>1).map(k=>ppdName(k));
+}
+const isuAktif=()=>{const batal=new Set(DB.dialog.filter(isDibatalkan).map(d=>d.id));return DB.isu.filter(i=>!batal.has(i.dialogId));};
+
 function renderBorang(){
-  const alreadySubmitted=DB.dialog.find(d=>d.ppdId===SESSION.ppdId&&d.minggu===LATEST_WEEK);
-  let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div><h2>Hantar Laporan Dialog Prestasi</h2>
-    <p>Minggu ${LATEST_WEEK} · ${fmtDate(latestWeekTarikh())}</p></div>`;
+  const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
+  if(EDIT_ID && !editing){EDIT_ID=null;} // rekod hilang — kembali ke mod baharu
+  // laporan aktif minggu ini (rekod dibatalkan tidak dikira → boleh hantar semula)
+  const alreadySubmitted = editing ? null :
+    DB.dialog.find(d=>d.ppdId===SESSION.ppdId&&d.minggu===LATEST_WEEK&&!isDibatalkan(d));
+
+  let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div>
+    <h2>${editing?"Kemaskini Laporan Dialog Prestasi":"Hantar Laporan Dialog Prestasi"}</h2>
+    <p>Minggu ${editing?editing.minggu:LATEST_WEEK} · ${fmtDate(editing?editing.tarikh:latestWeekTarikh())}</p></div>`;
 
   if(alreadySubmitted){
     h+=`<div class="banner"><span class="b-ico">✓</span><div class="banner-text">
-      <b>Sudah dihantar.</b> Laporan Dialog Prestasi Minggu ${LATEST_WEEK} telah direkodkan pada ${fmtDate(alreadySubmitted.tarikhSubmit)}. 
-      Anda boleh semak di "Rekod Dialog Saya".</div></div>`;
+      <b>Sudah dihantar.</b> Laporan Dialog Prestasi Minggu ${LATEST_WEEK} telah direkodkan pada ${fmtDate(alreadySubmitted.tarikhSubmit)}.
+      Anda boleh semak, kemaskini atau padam di "Rekod Dialog Saya".</div>
+      <button class="btn btn-brass btn-sm" onclick="mulaKemaskini('${alreadySubmitted.id}')">✎ Kemaskini</button></div>`;
     $("#main").innerHTML=h;return;
   }
 
-  h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
-    <b>Peringatan:</b> Laporan minggu ini belum dihantar. Tarikh akhir: <b>${DB.config.HARI_TARIKH_AKHIR} minggu ini</b>.</div></div>`;
+  if(editing){
+    h+=`<div class="banner"><span class="b-ico">✎</span><div class="banner-text">
+      <b>Mod Kemaskini.</b> Anda sedang mengemaskini laporan Minggu ${editing.minggu}. Perubahan akan menggantikan rekod sedia ada.</div>
+      <button class="btn btn-ghost btn-sm" onclick="batalKemaskini()">Batal</button></div>`;
+  }else{
+    h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
+      <b>Peringatan:</b> Laporan minggu ini belum dihantar. Tarikh akhir: <b>${DB.config.HARI_TARIKH_AKHIR} minggu ini</b>.</div></div>`;
+  }
 
-  const tarikhDefault=latestWeekTarikh();
+  const tarikhDefault = editing ? editing.tarikh : latestWeekTarikh();
+  const val=(v)=>v?String(v).replace(/"/g,"&quot;"):"";
   h+=`<div class="card"><div class="card-head"><h3>Butiran Sesi</h3>
     <div class="sub">Mengikut format rasmi LAMPIRAN A (DP PPD)</div></div><div class="card-body">
     <div class="form-row">
       <div class="form-field"><label>Pengerusi <span class="req">*</span></label>
-        <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah"></div>
+        <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah" value="${editing?val(editing.pengerusi):""}"></div>
       <div class="form-field"><label>Tarikh <span class="req">*</span></label>
         <input id="dTarikh" type="date" value="${tarikhDefault}" onchange="updateHari()"></div>
     </div>
@@ -1344,15 +1414,15 @@ function renderBorang(){
       <div class="form-field"><label>Hari</label>
         <input id="dHari" type="text" value="${hariMelayu(tarikhDefault)}" readonly style="background:#f2f4f6"></div>
       <div class="form-field"><label>Masa</label>
-        <input id="dMasa" type="text" placeholder="cth: 9:00 pagi"></div>
+        <input id="dMasa" type="text" placeholder="cth: 9:00 pagi" value="${editing?val(editing.masa):""}"></div>
     </div>
     <div class="form-field"><label>Tempat</label>
-      <input id="dTempat" type="text" placeholder="cth: Bilik Mesyuarat Utama PPD"></div>
+      <input id="dTempat" type="text" placeholder="cth: Bilik Mesyuarat Utama PPD" value="${editing?val(editing.tempat):""}"></div>
     <div class="form-field"><label>Kehadiran</label>
-      <textarea id="dHadir" placeholder="Senaraikan kehadiran — satu nama/jawatan setiap baris" style="min-height:90px"></textarea>
+      <textarea id="dHadir" placeholder="Senaraikan kehadiran — satu nama/jawatan setiap baris" style="min-height:90px">${editing&&Array.isArray(editing.kehadiran)?editing.kehadiran.join("\n"):""}</textarea>
       <div class="help">Satu baris = satu kehadiran (akan disenaraikan a, b, c, d… dalam laporan PDF).</div></div>
     <div class="form-field"><label>Ringkasan Sesi (pilihan)</label>
-      <textarea id="dRingkas" placeholder="Ringkasan umum perbincangan dialog..."></textarea></div>
+      <textarea id="dRingkas" placeholder="Ringkasan umum perbincangan dialog...">${editing?(editing.ringkasan||""):""}</textarea></div>
   </div></div>`;
 
   h+=`<div class="card"><div class="card-head"><div><h3>Isu dan Tindakan</h3>
@@ -1382,19 +1452,77 @@ function renderBorang(){
   h+=`<div class="card"><div class="card-head"><h3>Pengesahan</h3></div><div class="card-body">
     <div class="form-row">
       <div class="form-field"><label>Dicatat oleh <span class="req">*</span></label>
-        <input id="dDicatat" type="text" placeholder="Nama pencatat laporan"></div>
+        <input id="dDicatat" type="text" placeholder="Nama pencatat laporan" value="${editing?val(editing.dicatatOleh):""}"></div>
       <div class="form-field"><label>Disahkan oleh <span class="req">*</span></label>
-        <input id="dDisah" type="text" placeholder="Nama pengesah (cth: PPD)"></div>
+        <input id="dDisah" type="text" placeholder="Nama pengesah (cth: PPD)" value="${editing?val(editing.disahkanOleh):""}"></div>
     </div>
   </div></div>`;
 
   h+=`<div class="btn-row" style="margin-top:4px">
-    <button class="btn btn-navy" onclick="submitDialog()" style="padding:13px 26px">Hantar Laporan</button>
-    <button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button></div>`;
+    <button class="btn btn-navy" onclick="submitDialog()" style="padding:13px 26px">${editing?"Simpan Perubahan":"Hantar Laporan"}</button>
+    ${editing?`<button class="btn btn-ghost" onclick="batalKemaskini()">Batal</button>`
+             :`<button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button>`}</div>`;
 
   $("#main").innerHTML=h;
   borangGambar={1:null,2:null};
-  issueCount=0;addIssue();addIssue();
+  issueCount=0;
+
+  if(editing){
+    // muat semula isu sedia ada
+    const isuList=DB.isu.filter(i=>i.dialogId===editing.id);
+    if(isuList.length){
+      isuList.forEach(i=>addIssue(i));
+    }else{addIssue();addIssue();}
+    // muat semula gambar sedia ada (papar pratonton)
+    [1,2].forEach(slot=>{
+      const raw = slot===1?editing.gambar1:editing.gambar2;
+      const src = gambarSrc(raw);
+      if(src){
+        borangGambar[slot] = String(raw).startsWith("data:") ? raw : ("KEEP:"+raw); // KEEP = kekalkan fail Drive asal
+        const prev=$("#gprev"+slot), drop=$("#gdrop"+slot);
+        prev.innerHTML=`<img src="${src}" alt="Gambar ${slot}">
+          <button type="button" class="gambar-remove" onclick="buangGambar(${slot})">✕ Buang</button>`;
+        prev.classList.remove("hidden"); drop.classList.add("hidden");
+      }
+    });
+  }else{
+    addIssue();addIssue();
+  }
+}
+/* ---- Mula / batal mod kemaskini ---- */
+function mulaKemaskini(dialogId){EDIT_ID=dialogId;navigate("borang");}
+function batalKemaskini(){EDIT_ID=null;navigate("rekod");}
+
+/* ---- Padam laporan (tanda 'Dibatalkan' — rekod kekal untuk audit) ---- */
+function mintaPadamLaporan(dialogId){
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(!d)return;
+  const nIsu=DB.isu.filter(i=>i.dialogId===dialogId).length;
+  showModal("Padam Laporan?",
+    `<p style="font-size:14px;margin-bottom:12px">Laporan <b>Minggu ${d.minggu} · ${fmtDate(d.tarikh)}</b> (${nIsu} isu) akan ditanda <b>Dibatalkan</b>.</p>
+     <div style="background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#7a5c08">
+       Rekod <b>tidak dibuang sepenuhnya</b> — ia dikekalkan untuk tujuan audit, tetapi tidak lagi dikira dalam
+       pemantauan JPN, dan tindak susul berkaitan akan ditutup. Anda boleh hantar laporan baharu untuk minggu ini selepas ini.
+     </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" style="background:var(--danger)" onclick="padamLaporan('${dialogId}')">Ya, Batalkan Laporan</button>`);
+}
+function padamLaporan(dialogId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{
+      await apiPost("cancelDialog",{dialogId,oleh:SESSION.nama}); await refreshData();
+      closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
+    }catch(err){toast(err.message||"Gagal membatalkan laporan");}})();
+    return;
+  }
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(d){
+    d.status="Dibatalkan"; d.tarikhBatal=todayISO(); d.dibatalkanOleh=SESSION.nama;
+    // tutup tindak susul berkaitan
+    const isuIds=DB.isu.filter(i=>i.dialogId===dialogId).map(i=>i.id);
+    DB.tindakSusul=DB.tindakSusul.filter(t=>!isuIds.includes(t.isuId));
+  }
+  closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
 }
 /* ---- Muat naik & pratonton gambar (dikecilkan di pelayar) ---- */
 let borangGambar={1:null,2:null};
@@ -1433,26 +1561,28 @@ function resizeImage(file,maxDim,quality,cb){
   };
   reader.readAsDataURL(file);
 }
-function addIssue(){
+function addIssue(data){
   issueCount++;
   const cats=DB.kategori.filter(k=>k.aktif);
+  const esc=(v)=>v?String(v).replace(/"/g,"&quot;"):"";
+  const d=data||null;
   const div=document.createElement("div");
   div.className="issue-block";div.id=`issue-${issueCount}`;
   div.innerHTML=`<span class="issue-num">Isu ${issueCount}</span>
     <button class="remove-issue" onclick="removeIssue(${issueCount})">✕ Buang</button>
     <div class="form-field" style="margin-top:6px"><label>Kategori <span class="req">*</span></label>
       <select class="issueKat"><option value="">— Pilih kategori —</option>
-        ${cats.map(k=>`<option value="${k.id}">${k.nama}</option>`).join("")}</select>
+        ${cats.map(k=>`<option value="${k.id}"${d&&d.kategoriId===k.id?" selected":""}>${k.nama}</option>`).join("")}</select>
       <div class="help">Kategori digunakan untuk analitik JPN (tidak dipapar dalam borang rasmi).</div></div>
     <div class="form-field"><label>Isu <span class="req">*</span></label>
-      <textarea class="issueDesc" placeholder="Terangkan isu yang dibincangkan..."></textarea></div>
+      <textarea class="issueDesc" placeholder="Terangkan isu yang dibincangkan...">${d?(d.penerangan||""):""}</textarea></div>
     <div class="form-field"><label>Tindakan <span class="req">*</span></label>
-      <textarea class="issueTindakan" placeholder="Tindakan yang dipersetujui / diambil..."></textarea></div>
+      <textarea class="issueTindakan" placeholder="Tindakan yang dipersetujui / diambil...">${d?(d.tindakan||""):""}</textarea></div>
     <div class="form-field"><label>Sektor / Pegawai</label>
-      <input class="issueSektor" type="text" placeholder="Pihak bertanggungjawab (cth: Sektor Pengurusan Akademik)"></div>
-    <div class="checkbox-row"><input type="checkbox" class="issueKPPD" checked>
+      <input class="issueSektor" type="text" placeholder="Pihak bertanggungjawab (cth: Sektor Pengurusan Akademik)" value="${d?esc(d.sektorPegawai):""}"></div>
+    <div class="checkbox-row"><input type="checkbox" class="issueKPPD"${!d||String(d.kawalanKPPD||"Ya")==="Ya"?" checked":""}>
       <label>Perkara ini <b>di bawah kawalan KPPD</b> (buang tanda jika perlu penyelarasan JPN)</label></div>
-    <div class="checkbox-row"><input type="checkbox" class="issuePerlu" checked>
+    <div class="checkbox-row"><input type="checkbox" class="issuePerlu"${!d||d.perluTindakSusul?" checked":""}>
       <label>Isu ini memerlukan tindak susul (dijejak dalam sistem)</label></div>`;
   $("#issueList").appendChild(div);
 }
@@ -1476,41 +1606,69 @@ function submitDialog(){
   if(!pengerusi||!dicatat||!disah){toast("Sila lengkapkan Pengerusi, Dicatat oleh & Disahkan oleh");return;}
   if(!valid||!issues.length){toast("Sila lengkapkan Kategori, Isu & Tindakan bagi setiap isu");return;}
   const kehadiran=$("#dHadir").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
 
   if(!CONFIG.DEMO_MODE){
     // ---- MOD LIVE: hantar ke GAS ----
     const payload={ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,hari:$("#dHari").value,
-      masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,minggu:LATEST_WEEK,tahun:DB.config.TAHUN_SEMASA,
+      masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,
+      minggu:editing?editing.minggu:LATEST_WEEK,tahun:DB.config.TAHUN_SEMASA,
       kehadiran,ringkasan:$("#dRingkas").value,disubmitOleh:SESSION.nama,dicatatOleh:dicatat,disahkanOleh:disah,
       gambar1:borangGambar[1]||"",gambar2:borangGambar[2]||"",
       issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
         sektorPegawai:is.sektor,kawalanKPPD:is.kawalanKPPD,perluTindakSusul:is.perlu}))};
+    if(editing) payload.dialogId=editing.id;
     (async()=>{try{
-      await apiPost("submitDialog",payload); await refreshData();
-      toast("Laporan Dialog Prestasi berjaya dihantar ✓"); buildSidebar(); navigate("rekod");
-    }catch(err){toast(err.message||"Gagal menghantar laporan");}})();
+      await apiPost(editing?"updateDialog":"submitDialog",payload); await refreshData();
+      EDIT_ID=null;
+      toast(editing?"Laporan berjaya dikemaskini ✓":"Laporan Dialog Prestasi berjaya dihantar ✓");
+      buildSidebar(); navigate("rekod");
+    }catch(err){toast(err.message||"Gagal menyimpan laporan");}})();
     return;
   }
+
   // ---- MOD DEMO ----
+  const keepOrData=(v)=>!v?null:(String(v).startsWith("KEEP:")?String(v).slice(5):v);
+  if(editing){
+    // kemaskini rekod sedia ada
+    Object.assign(editing,{tarikh:$("#dTarikh").value,pengerusi,hari:$("#dHari").value,
+      masa:$("#dMasa").value,tempat:$("#dTempat").value,kehadiran,ringkasan:$("#dRingkas").value,
+      dicatatOleh:dicatat,disahkanOleh:disah,
+      gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
+    // ganti isu & tindak susul lama
+    const oldIsu=DB.isu.filter(i=>i.dialogId===editing.id).map(i=>i.id);
+    DB.tindakSusul=DB.tindakSusul.filter(t=>!oldIsu.includes(t.isuId));
+    DB.isu=DB.isu.filter(i=>i.dialogId!==editing.id);
+    tulisIsuDemo(editing.id,issues,$("#dTarikh").value);
+    EDIT_ID=null;
+    toast("Laporan berjaya dikemaskini ✓");
+    buildSidebar();navigate("rekod");
+    return;
+  }
   const dId="D"+Date.now();
   DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:LATEST_WEEK,tahun:2026,
     pengerusi,hari:$("#dHari").value,masa:$("#dMasa").value,tempat:$("#dTempat").value,
-    kehadiran,ringkasan:$("#dRingkas").value,status:"Selesai",tarikhSubmit:"2026-08-09",
+    kehadiran,ringkasan:$("#dRingkas").value,status:"Selesai",tarikhSubmit:todayISO(),
     dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null,
-    gambar1:borangGambar[1]||null,gambar2:borangGambar[2]||null});
+    gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
+  tulisIsuDemo(dId,issues,$("#dTarikh").value);
+  toast("Laporan Dialog Prestasi berjaya dihantar ✓");
+  buildSidebar();navigate("rekod");
+}
+/* tulis isu + tindak susul (mod demo) */
+function tulisIsuDemo(dId,issues,tarikh){
   issues.forEach((is,idx)=>{
     const iId="I"+Date.now()+idx;
     DB.isu.push({id:iId,dialogId:dId,ppdId:SESSION.ppdId,kategoriId:is.kat,penerangan:is.desc,
-      tindakan:is.tindakan,sektorPegawai:is.sektor,perluTindakSusul:is.perlu,tarikh:$("#dTarikh").value,
+      tindakan:is.tindakan,sektorPegawai:is.sektor,perluTindakSusul:is.perlu,tarikh,
       kawalanKPPD:is.kawalanKPPD,statusMakluman:"Belum Dimaklumkan",tarikhMakluman:null});
     if(is.perlu){
-      const target=new Date($("#dTarikh").value);target.setDate(target.getDate()+DB.config.TINDAK_SUSUL_SLA_HARI);
+      const target=new Date(tarikh);target.setDate(target.getDate()+DB.config.TINDAK_SUSUL_SLA_HARI);
       DB.tindakSusul.push({id:"TS"+Date.now()+idx,isuId:iId,dialogId:dId,ppdId:SESSION.ppdId,kategoriId:is.kat,
-        pic:is.sektor||`Pegawai ${ppdName(SESSION.ppdId)}`,tarikhSasaran:target.toISOString().slice(0,10),status:"Belum Mula",tarikhSelesai:null,catatan:""});
+        pic:is.sektor||`Pegawai ${ppdName(SESSION.ppdId)}`,tarikhSasaran:target.toISOString().slice(0,10),
+        status:"Belum Mula",tarikhSelesai:null,catatan:""});
     }
   });
-  toast("Laporan Dialog Prestasi berjaya dihantar ✓");
-  buildSidebar();navigate("rekod");
 }
 
 /* ============================================================
@@ -1524,12 +1682,19 @@ function renderRekod(){
   mine.forEach(d=>{
     const issues=DB.isu.filter(i=>i.dialogId===d.id);
     const fbs=DB.maklumBalas.filter(f=>f.dialogId===d.id);
-    h+=`<div class="card"><div class="card-head"><div>
+    const batal=isDibatalkan(d);
+    h+=`<div class="card"${batal?' style="opacity:.72"':''}><div class="card-head"><div>
       <h3 style="font-size:17px">Minggu ${d.minggu} · ${fmtDate(d.tarikh)}</h3>
-      <div class="sub">${issues.length} isu · dihantar ${fmtDate(d.tarikhSubmit)}</div></div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-brass btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ Muat Turun PDF</button>
-        <span class="badge b-ok">Selesai</span></div></div><div class="card-body">`;
+      <div class="sub">${issues.length} isu · dihantar ${fmtDate(d.tarikhSubmit)}${batal?" · <b style='color:var(--danger)'>Dibatalkan</b>":""}</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${batal?"":`<button class="btn btn-brass btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="mulaKemaskini('${d.id}')">✎ Kemaskini</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:#f0c9c4" onclick="mintaPadamLaporan('${d.id}')">🗑 Padam</button>`}
+        <span class="badge ${batal?"b-danger":"b-ok"}">${batal?"Dibatalkan":"Selesai"}</span></div></div><div class="card-body">`;
+    if(batal){
+      h+=`<div style="font-size:13px;color:var(--muted)">Laporan ini telah dibatalkan${d.tarikhBatal?` pada ${fmtDate(d.tarikhBatal)}`:""}. Rekod dikekalkan untuk tujuan audit dan tidak dikira dalam pemantauan JPN.</div></div></div>`;
+      return;
+    }
     if(d.ringkasan)h+=`<p style="font-size:13.5px;color:var(--muted);margin-bottom:14px">${d.ringkasan}</p>`;
     issues.forEach(i=>{
       const ts=DB.tindakSusul.find(t=>t.isuId===i.id);
