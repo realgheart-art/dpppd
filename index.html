@@ -731,22 +731,27 @@ async function tulisLaporanKeDoc(doc, d, opts={}){
   }else{y+=4;}
 
   /* ---- Tandatangan ---- */
-  if(y>248){doc.addPage();y=40;}
-  const colL=M, colR=pageW/2+6;
+  if(y>240){doc.addPage();y=40;}
+  const colW=(pageW-2*M-12)/2;          // lebar setiap lajur tandatangan
+  const colL=M, colR=M+colW+12;
   doc.setFont("helvetica","normal"); doc.setFontSize(11);
   doc.text("Dicatat oleh:", colL, y);
   doc.text("Disahkan oleh:", colR, y);
   y+=16;
   doc.setDrawColor(120,120,120); doc.setLineWidth(0.3);
-  doc.line(colL, y, colL+70, y);
-  doc.line(colR, y, colR+70, y);
+  doc.line(colL, y, colL+colW, y);
+  doc.line(colR, y, colR+colW, y);
   y+=6;
-  doc.setFontSize(10);
-  doc.text(d.dicatatOleh||"………………………………", colL, y);
-  doc.text(d.disahkanOleh||"………………………………", colR, y);
+  doc.setFontSize(9.5);
+  // balut nama supaya tidak bertindih dengan lajur sebelah
+  const namaL=doc.splitTextToSize(d.dicatatOleh||"………………………………", colW);
+  const namaR=doc.splitTextToSize(d.disahkanOleh||"………………………………", colW);
+  doc.text(namaL, colL, y);
+  doc.text(namaR, colR, y);
+  y+=Math.max(namaL.length, namaR.length)*4.6;   // turun ikut baris terbanyak
 
   // s.k. Pengarah Pendidikan JPN (laporan dihantar untuk penyelarasan)
-  y+=16;
+  y+=12;
   doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...NAVY);
   doc.text("s.k.", M, y);
   doc.setFont("helvetica","normal"); doc.setTextColor(...INK);
