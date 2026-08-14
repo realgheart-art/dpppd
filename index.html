@@ -260,7 +260,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="login-body">
       <div class="field">
         <label>Nama Pengguna</label>
-        <input id="loginUser" type="text" placeholder="cth: admin_s4pd atau K010" autocomplete="username">
+        <input id="loginUser" type="text" placeholder="cth: admin_s4pd atau KODPPD" autocomplete="username">
       </div>
       <div class="field">
         <label>Kata Laluan</label>
@@ -1319,7 +1319,9 @@ function renderPenyelarasan(){
         <td style="max-width:220px;font-size:13px">${i.tindakan||"—"}</td>
         <td style="font-size:12.5px">${i.sektorPegawai||"—"}</td>
         <td class="t-center">${dimaklum
-          ? '<span class="badge b-ok">Telah Dimaklumkan</span>'
+          ? `<div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">
+               <span class="badge b-ok">Telah Dimaklumkan</span>
+               <button class="btn btn-ghost btn-sm" title="Batalkan tanda makluman" onclick="undoMakluman('${i.id}')">↺ Undo</button></div>`
           : `<button class="btn btn-brass btn-sm" onclick="tandaMakluman('${i.id}')">Tanda Dimaklumkan</button>`}</td></tr>`;
     });
   }
@@ -1338,7 +1340,7 @@ function renderPenyelarasan(){
       <td class="t-center">${nLuar?`<span class="badge b-pending">${nLuar} perkara</span>`:'<span class="badge b-neutral">—</span>'}</td>
       <td class="t-center">${d.dihantarKePengarah?'<span class="badge b-ok">Dihantar</span>':'<span class="badge b-danger">Belum</span>'}</td>
       <td class="t-center">${d.dihantarKePengarah
-        ? '<span style="color:var(--muted);font-size:12px">—</span>'
+        ? `<button class="btn btn-ghost btn-sm" title="Batalkan tanda penghantaran" onclick="undoPengarah('${d.id}')">↺ Undo</button>`
         : `<button class="btn btn-ghost btn-sm" onclick="tandaPengarah('${d.id}')">Tanda Dihantar</button>`}</td></tr>`;
   });
   h+=`</tbody></table></div></div></div>`;
@@ -1378,6 +1380,30 @@ function tandaSemuaPengarah(){
   }
   senarai.forEach(d=>{d.dihantarKePengarah=true;d.tarikhHantarPengarah="2026-08-09";});
   buildSidebar();renderPenyelarasan();toast(`Semua laporan Minggu ${LATEST_WEEK} ditanda dihantar`);
+}
+
+/* ---- UNDO: batalkan tanda tersilap klik ---- */
+function undoMakluman(isuId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("undoMakluman",{isuId});await refreshData();
+      renderPenyelarasan();toast("Tanda makluman dibatalkan");
+    }catch(err){toast(err.message||"Gagal membatalkan");}})();
+    return;
+  }
+  const i=DB.isu.find(x=>x.id===isuId);
+  if(i){i.statusMakluman="Belum Dimaklumkan"; i.tarikhMakluman=null;}
+  renderPenyelarasan();toast("Tanda makluman dibatalkan");
+}
+function undoPengarah(dialogId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("undoDihantarPengarah",{dialogId});await refreshData();
+      buildSidebar();renderPenyelarasan();toast("Tanda penghantaran dibatalkan");
+    }catch(err){toast(err.message||"Gagal membatalkan");}})();
+    return;
+  }
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(d){d.dihantarKePengarah=false; d.tarikhHantarPengarah=null;}
+  buildSidebar();renderPenyelarasan();toast("Tanda penghantaran dibatalkan");
 }
 
 /* ============================================================
