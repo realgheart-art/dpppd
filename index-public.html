@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dialog Prestasi PPD — Paparan JPN Kedah</title>
+<meta name="theme-color" content="#0f2942">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f2942; --navy-700:#16385a; --navy-300:#3a5f85;
+  --brass:#b8860b; --brass-light:#e0b84a; --brass-soft:#f5ecd4;
+  --ink:#1a2430; --muted:#6b7785; --line:#e2e7ec; --bg:#f6f8fa; --card:#ffffff;
+  --ok:#1f8a4c; --ok-bg:#e4f4ea; --warn:#b8860b; --warn-bg:#fbf3dd;
+  --danger:#c0392b; --danger-bg:#fbe6e3; --info:#2b6cb0; --info-bg:#e6f0f9;
+  --radius:14px; --shadow:0 1px 3px rgba(15,41,66,.08),0 6px 24px rgba(15,41,66,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Fraunces',serif;font-weight:600;color:var(--navy);letter-spacing:-.01em}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:15px}
+.hidden{display:none!important}
+
+/* ---------- LOGIN ---------- */
+#loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(135deg,#0f2942 0%,#16385a 55%,#0b1f33 100%)}
+.login-card{background:var(--card);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);
+  width:100%;max-width:420px;overflow:hidden}
+.login-head{background:var(--navy);color:#fff;padding:36px 32px 30px;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;text-align:center}
+.login-head::after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;
+  border-radius:50%;background:radial-gradient(circle,rgba(184,134,11,.35),transparent 70%)}
+.crest{width:44px;height:44px;border-radius:11px;background:var(--brass);display:flex;align-items:center;
+  justify-content:center;font-family:'Fraunces',serif;font-weight:700;color:var(--navy);font-size:22px;margin-bottom:16px}
+.crest--logo{background:transparent;border-radius:0;overflow:visible;padding:0;box-shadow:none}
+.crest--logo img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 3px 7px rgba(0,0,0,.4))}
+.login-head .crest--logo{width:160px;height:160px;margin-bottom:14px}
+.login-head .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass-light);font-weight:600;margin-bottom:6px}
+.login-head h1{color:#fff;font-size:24px;line-height:1.2}
+.login-head p{color:#b8c6d6;font-size:13px;margin-top:6px}
+.login-body{padding:28px 32px 32px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.02em}
+.field input,.field select{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;
+  background:#fbfcfd;transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--brass);box-shadow:0 0 0 3px rgba(184,134,11,.12)}
+.btn-primary{width:100%;padding:13px;background:var(--navy);color:#fff;border-radius:10px;font-weight:600;font-size:15px;
+  transition:background .15s,transform .05s}
+.btn-primary:hover{background:var(--navy-700)}
+.btn-primary:active{transform:translateY(1px)}
+.login-hint{margin-top:18px;padding:12px 14px;background:var(--brass-soft);border-radius:10px;font-size:12px;color:#7a5c08;line-height:1.6}
+.login-hint b{color:var(--navy)}
+.demo-chip{display:inline-block;background:#fff;border:1px solid var(--brass);color:var(--navy);
+  padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;margin:2px 3px 0 0;cursor:pointer}
+.demo-chip:hover{background:var(--brass);color:#fff}
+
+/* ---------- APP SHELL ---------- */
+#appView{min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--navy);color:#fff;padding:0 20px;height:60px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 2px 12px rgba(15,41,66,.18)}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar .crest{width:34px;height:34px;font-size:17px;border-radius:9px;margin:0}
+.topbar .crest--logo{width:44px;height:44px;border-radius:0}
+.topbar-title{font-family:'Fraunces',serif;font-weight:600;font-size:16px;line-height:1.1}
+.topbar-title small{display:block;font-family:'Plus Jakarta Sans';font-weight:500;font-size:11px;color:var(--brass-light);letter-spacing:.04em}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.user-badge{text-align:right;font-size:12px;line-height:1.3}
+.user-badge b{font-size:13px}
+.user-badge span{color:#b8c6d6;display:block}
+.icon-btn{color:#cdd9e6;font-size:13px;padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.18);font-weight:600}
+.icon-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+
+.layout{display:flex;flex:1;min-height:0}
+.sidebar{width:230px;background:var(--card);border-right:1px solid var(--line);padding:16px 12px;flex-shrink:0}
+.nav-group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700;padding:14px 12px 6px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:var(--ink);
+  font-weight:500;font-size:14px;width:100%;text-align:left;transition:background .12s;margin-bottom:2px}
+.nav-item:hover{background:var(--bg)}
+.nav-item.active{background:var(--navy);color:#fff;font-weight:600}
+.nav-item.active .nav-ico{color:var(--brass-light)}
+.nav-ico{width:20px;text-align:center;font-size:15px;color:var(--navy-300)}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;font-weight:700;
+  min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.nav-item.active .nav-badge{background:var(--brass)}
+
+.main{flex:1;overflow-y:auto;padding:26px 30px 60px;min-width:0}
+.page-head{margin-bottom:22px}
+.page-head .eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--brass);font-weight:700;margin-bottom:5px}
+.page-head h2{font-size:26px}
+.page-head p{color:var(--muted);font-size:14px;margin-top:4px}
+
+/* ---------- CARDS / STATS ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:26px}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--line);position:relative;overflow:hidden}
+.stat-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brass)}
+.stat-card .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.stat-card .val{font-family:'Fraunces',serif;font-size:36px;font-weight:600;color:var(--navy);margin-top:6px;line-height:1}
+.stat-card .sub{font-size:12.5px;color:var(--muted);margin-top:6px}
+.stat-card.ok::before{background:var(--ok)}
+.stat-card.warn::before{background:var(--warn)}
+.stat-card.danger::before{background:var(--danger)}
+
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:22px}
+.card-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-head h3{font-size:18px}
+.card-head .sub{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:2px}
+.card-body{padding:22px}
+.card-body.flush{padding:0}
+
+/* ---------- TABLE ---------- */
+table{width:100%;border-collapse:collapse}
+thead th{background:#fafbfc;text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);font-weight:700;padding:11px 16px;border-bottom:2px solid var(--line);white-space:nowrap}
+tbody td{padding:13px 16px;border-bottom:1px solid #eef1f4;font-size:13.5px;vertical-align:top}
+tbody tr:hover{background:#fafbfc}
+tbody tr:last-child td{border-bottom:none}
+.t-center{text-align:center}
+
+/* compliance grid */
+.comp-cell{display:inline-flex;align-items:center;justify-content:center;min-width:74px;padding:5px 8px;
+  border-radius:7px;font-size:12px;font-weight:600}
+.comp-yes{background:var(--ok-bg);color:var(--ok)}
+.comp-no{background:var(--danger-bg);color:var(--danger)}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-progress{background:var(--info-bg);color:var(--info)}
+.b-pending{background:var(--warn-bg);color:var(--warn)}
+.b-danger{background:var(--danger-bg);color:var(--danger)}
+.b-cat{background:var(--brass-soft);color:#7a5c08;font-weight:600}
+.b-neutral{background:#eef1f4;color:var(--muted)}
+
+.pill{font-size:11px;padding:2px 8px;border-radius:5px;background:#eef1f4;color:var(--muted);font-weight:600}
+
+/* ---------- FORM ---------- */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-field{margin-bottom:16px}
+.form-field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink)}
+.form-field label .req{color:var(--danger)}
+.form-field input,.form-field select,.form-field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);
+  border-radius:9px;background:#fbfcfd;transition:border-color .15s,box-shadow .15s}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:var(--brass);box-shadow:0 0 0 3px rgba(184,134,11,.12)}
+.form-field textarea{resize:vertical;min-height:70px}
+.form-field .help{font-size:12px;color:var(--muted);margin-top:5px}
+
+.issue-block{border:1.5px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;background:#fbfcfd;position:relative}
+.issue-block .issue-num{position:absolute;top:-10px;left:14px;background:var(--navy);color:#fff;font-size:11px;
+  font-weight:700;padding:2px 10px;border-radius:12px;font-family:'Fraunces',serif}
+.remove-issue{position:absolute;top:10px;right:12px;color:var(--danger);font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px}
+.remove-issue:hover{background:var(--danger-bg)}
+.checkbox-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.checkbox-row input{width:auto}
+.checkbox-row label{margin:0;font-weight:500;font-size:13px}
+
+.btn{padding:10px 18px;border-radius:9px;font-weight:600;font-size:14px;transition:all .15s}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-navy:hover{background:var(--navy-700)}
+.btn-brass{background:var(--brass);color:#fff}
+.btn-brass:hover{background:#a5790a}
+.btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--navy-300);background:var(--bg)}
+.btn-sm{padding:6px 12px;font-size:12.5px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+
+/* banner */
+.banner{background:var(--warn-bg);border:1px solid var(--brass);border-radius:12px;padding:14px 18px;
+  margin-bottom:22px;display:flex;align-items:center;gap:12px}
+.banner .b-ico{font-size:22px}
+.banner b{color:var(--navy)}
+.banner-text{font-size:13.5px;color:#7a5c08;flex:1}
+.banner-close{margin-left:auto;color:#7a5c08;font-size:18px;padding:4px 8px}
+
+/* feedback thread */
+.fb-item{padding:14px 16px;border-left:3px solid var(--brass);background:#fbfcfd;border-radius:0 10px 10px 0;margin-bottom:12px}
+.fb-meta{font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.fb-meta b{color:var(--navy)}
+.fb-text{font-size:13.5px}
+
+/* section list detail */
+.detail-issue{padding:14px 0;border-bottom:1px solid var(--line)}
+.detail-issue:last-child{border-bottom:none}
+.di-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.di-desc{font-size:14px;color:var(--ink)}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty .ico{font-size:38px;margin-bottom:10px;opacity:.4}
+
+/* modal */
+.modal-back{position:fixed;inset:0;background:rgba(15,41,66,.5);display:flex;align-items:center;justify-content:center;
+  z-index:100;padding:20px;backdrop-filter:blur(2px)}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-size:19px}
+.modal-body{padding:22px 24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.filter-bar select,.filter-bar input{padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-size:13.5px}
+.filter-bar select:focus,.filter-bar input:focus{outline:none;border-color:var(--brass)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--navy);
+  color:#fff;padding:13px 22px;border-radius:11px;font-weight:600;font-size:14px;box-shadow:0 12px 30px rgba(0,0,0,.25);
+  z-index:200;opacity:0;transition:all .3s;display:flex;align-items:center;gap:9px}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast .tick{color:var(--brass-light)}
+
+.demo-note{background:var(--info-bg);border:1px dashed var(--info);border-radius:10px;padding:12px 16px;font-size:12.5px;color:#1f5a8f;margin-bottom:20px}
+.demo-note b{color:var(--navy)}
+.gambar-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.gambar-input{position:absolute;width:.1px;height:.1px;opacity:0;overflow:hidden;z-index:-1}
+.gambar-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border:2px dashed var(--line);border-radius:12px;padding:26px 12px;cursor:pointer;color:var(--muted);
+  background:#fbfcfd;transition:border-color .15s,background .15s;text-align:center;font-size:13px;font-weight:600}
+.gambar-drop:hover{border-color:var(--brass);background:var(--brass-soft);color:#7a5c08}
+.gambar-ico{font-size:26px;line-height:1;color:var(--navy-300)}
+.gambar-hint{font-size:11px;font-weight:500;color:#aab}
+.gambar-preview{position:relative;border-radius:12px;overflow:hidden;border:1.5px solid var(--line)}
+.gambar-preview img{width:100%;height:180px;object-fit:cover;display:block}
+.gambar-remove{position:absolute;top:8px;right:8px;background:rgba(15,41,66,.85);color:#fff;font-size:12px;
+  font-weight:600;padding:5px 10px;border-radius:7px;backdrop-filter:blur(2px)}
+.gambar-remove:hover{background:var(--danger)}
+.gambar-thumbs{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.gambar-thumbs img{width:120px;height:88px;object-fit:cover;border-radius:9px;border:1.5px solid var(--line);cursor:pointer;transition:transform .12s}
+.gambar-thumbs img:hover{transform:scale(1.03);border-color:var(--brass)}
+
+/* mobile */
+.hamburger{display:none;color:#fff;font-size:22px;padding:4px 8px}
+@media(max-width:860px){
+  .hamburger{display:block}
+  .sidebar{position:fixed;left:0;top:60px;bottom:0;z-index:35;transform:translateX(-100%);transition:transform .25s;box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  .sidebar.open{transform:translateX(0)}
+  .main{padding:20px 16px 50px}
+  .form-row{grid-template-columns:1fr}
+  .topbar-title small{display:none}
+  .user-badge span{display:none}
+  .scroll-x{overflow-x:auto}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView">
+  <div class="login-card">
+    <div class="login-head">
+      <div class="crest crest--logo"><img src="logo.png" alt="Logo Dialog Prestasi PPD JPN Kedah"></div>
+      <div class="eyebrow">JPN Kedah · Sektor S4PD</div>
+      <h1>Dialog Prestasi PPD</h1>
+      <p>Sistem Pemantauan Pelaksanaan, Isu &amp; Tindak Susul</p>
+    </div>
+    <div class="login-body">
+      <div class="field">
+        <label>Nama Pengguna</label>
+        <input id="loginUser" type="text" placeholder="cth: admin_s4pd atau ppd01" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Kata Laluan</label>
+        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Log Masuk</button>
+      <div class="login-hint" id="demoHint">
+        <b>Mod Demo</b> — klik untuk log masuk pantas:<br>
+        <span class="demo-chip" onclick="quickLogin('admin_s4pd')">JPN Admin (S4PD)</span>
+        <span class="demo-chip" onclick="quickLogin('ppd02')">PPD Kota Setar</span>
+        <span class="demo-chip" onclick="quickLogin('ppd05')">PPD Kulim/BB</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" class="hidden">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <div class="crest crest--logo"><img src="logo.png" alt="Logo"></div>
+      <div class="topbar-title">Dialog Prestasi PPD<small>JPN KEDAH · SEKTOR S4PD</small></div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-badge">
+        <b id="ubName">—</b>
+        <span id="ubRole">—</span>
+      </div>
+      <span class="icon-btn" style="cursor:default;border-color:rgba(224,184,74,.5);color:#E0B84A">Paparan Sahaja</span>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="tick">✓</span><span id="toastMsg"></span></div>
+
+<script>
+/* ============================================================
+   KONFIGURASI — tukar API_URL bila GAS Web App dah deploy.
+   Bila DEMO_MODE = false, semua fungsi guna fetch() ke GAS.
+   ============================================================ */
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/XXXX/exec", // ← ganti selepas deploy GAS
+  DEMO_MODE: true,   // true = guna data terbenam di bawah (tiada backend perlu)
+  PUBLIC_MODE: true, // paparan JPN tanpa login — BACA SAHAJA (untuk sematan dashboard lain)
+};
+
+/* ============================================================
+   LAPISAN API — hanya digunakan bila DEMO_MODE = false.
+   POST guna Content-Type text/plain untuk elak CORS preflight.
+   ============================================================ */
+async function apiGet(action, params={}){
+  const url=new URL(CONFIG.API_URL);
+  url.searchParams.set("action",action);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res=await fetch(url.toString());
+  const j=await res.json();
+  if(!j.ok) throw new Error(j.error||"Ralat API");
+  return j.data;
+}
+async function apiPost(action, payload={}){
+  if(CONFIG.PUBLIC_MODE){ // paparan awam = baca sahaja
+    toast("Paparan ini untuk semakan sahaja");
+    throw new Error("Tindakan tidak dibenarkan dalam paparan awam");
+  }
+  const res=await fetch(CONFIG.API_URL,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({action,payload}),
+  });
+  const j=await res.json();
+  if(!j.ok) throw new Error(j.error||"Ralat API");
+  return j.data;
+}
+/* Petakan baris Sheets (nama lajur) → bentuk DB frontend (camelCase) */
+function mapFromSheets(raw){
+  const yn=(v)=>String(v).trim().toLowerCase()==="ya";
+  const dstr=(v)=>{ if(!v)return null; try{return new Date(v).toISOString().slice(0,10);}catch(e){return String(v);} };
+  DB.ppd=(raw.ppd||[]).map(r=>({id:r.PPD_ID,nama:r.Nama_PPD||r["Nama_PPD (placeholder)"]||r.PPD_ID,emel:r.Emel,status:r.Status}));
+  DB.kategori=(raw.kategori||[]).map(r=>({id:r.KategoriID,nama:r.Nama_Kategori,aktif:yn(r.Aktif)}));
+  DB.config={
+    HARI_TARIKH_AKHIR:raw.config.HARI_TARIKH_AKHIR||"Khamis",
+    TINDAK_SUSUL_SLA_HARI:Number(raw.config.TINDAK_SUSUL_SLA_HARI||14),
+    TAHUN_SEMASA:Number(raw.config.TAHUN_SEMASA||2026),
+    REMINDER_EMEL_AKTIF:yn(raw.config.REMINDER_EMEL_AKTIF),
+    REMINDER_BANNER_AKTIF:yn(raw.config.REMINDER_BANNER_AKTIF),
+  };
+  DB.users=(raw.users||[]).map(r=>({username:String(r.Username).toLowerCase(),nama:r.Nama,peranan:r.Peranan,ppdId:r.PPD_ID&&r.PPD_ID!=="-"?r.PPD_ID:null,status:r.Status}));
+  DB.weeks=(raw.weeks||[]).map(w=>({no:Number(w.no),tarikh:dstr(w.tarikh)}));
+  DB.dialog=(raw.dialog||[]).map(r=>({id:r.DialogID,ppdId:r.PPD_ID,tarikh:dstr(r.TarikhDialog),
+    hari:r.Hari,masa:r.Masa,tempat:r.Tempat,pengerusi:r.Pengerusi,minggu:Number(r.MingguKe),tahun:Number(r.Tahun),
+    kehadiran:r.Kehadiran?String(r.Kehadiran).split("|").map(s=>s.trim()).filter(Boolean):[],
+    ringkasan:r.RingkasanSesi,status:r.StatusSesi,tarikhSubmit:dstr(r.TarikhSubmit),
+    dicatatOleh:r.DicatatOleh,disahkanOleh:r.DisahkanOleh,
+    dihantarKePengarah:yn(r.DihantarKePengarah),tarikhHantarPengarah:dstr(r.TarikhHantarPengarah),
+    gambar1:r.Gambar1||null,gambar2:r.Gambar2||null,
+    tarikhBatal:dstr(r.TarikhBatal),dibatalkanOleh:r.DibatalkanOleh||null}));
+  DB.isu=(raw.isu||[]).map(r=>({id:r.IsuID,dialogId:r.DialogID,ppdId:r.PPD_ID,kategoriId:r.KategoriID,
+    penerangan:r.Penerangan,tindakan:r.Tindakan,sektorPegawai:r.SektorPegawai,
+    perluTindakSusul:yn(r.PerluTindakSusul),tarikh:dstr(r.TarikhDicatat),
+    kawalanKPPD:r.KawalanKPPD||"Ya",statusMakluman:r.StatusMakluman||"Belum Dimaklumkan",tarikhMakluman:dstr(r.TarikhMakluman)}));
+  DB.tindakSusul=(raw.tindakSusul||[]).map(r=>{
+    const isu=DB.isu.find(i=>i.id===r.IsuID)||{};
+    return {id:r.TindakSusulID,isuId:r.IsuID,dialogId:isu.dialogId,ppdId:isu.ppdId,kategoriId:isu.kategoriId,
+      pic:r.PIC,tarikhSasaran:dstr(r.TarikhSasaran),status:r.Status,tarikhSelesai:dstr(r.TarikhSelesai),catatan:r.CatatanKemaskini};
+  });
+  DB.maklumBalas=(raw.maklumBalas||[]).map(r=>({id:r.MaklumBalasID,dialogId:r.DialogID,isuId:r.IsuID||null,
+    komen:r.Komen,oleh:r.DisiOleh,tarikh:dstr(r.Tarikh)}));
+}
+async function loadAllData(){
+  const raw=await apiGet("init");
+  mapFromSheets(raw);
+  LATEST_WEEK=mingguSemasa(new Date()); // minggu semasa ikut tarikh, bukan data sedia ada
+}
+async function refreshData(){ if(!CONFIG.DEMO_MODE){ await loadAllData(); } }
+
+/* ============================================================
+   PRAMUAT LOGO — untuk kepala surat PDF (crop segi empat sama).
+   ============================================================ */
+let LOGO_PDF=null;
+(function preloadLogo(){
+  try{
+    const img=new Image();
+    img.crossOrigin="anonymous";
+    img.onload=()=>{
+      try{
+        const s=Math.min(img.width,img.height);
+        const c=document.createElement("canvas"); c.width=s; c.height=s;
+        const ctx=c.getContext("2d");
+        ctx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,s,s);
+        LOGO_PDF=c.toDataURL("image/png");
+      }catch(e){ LOGO_PDF=null; } // tainted (file://) — guna fallback crest
+    };
+    img.onerror=()=>{ LOGO_PDF=null; };
+    img.src="logo.png";
+  }catch(e){ LOGO_PDF=null; }
+})();
+
+
+/* ============================================================
+   DUMMY DATA — struktur sama dengan Google Sheets tabs.
+   Bila sambung GAS, data ni datang dari doGet(action=...).
+   ============================================================ */
+const DB = {
+  ppd: [
+    {id:"PPD01",nama:"PPD BALING"},{id:"PPD02",nama:"PPD KOTA SETAR"},
+    {id:"PPD03",nama:"PPD KUALA MUDA"},{id:"PPD04",nama:"PPD KUBANG PASU"},
+    {id:"PPD05",nama:"PPD KULIM/BANDAR BAHARU"},{id:"PPD06",nama:"PPD LANGKAWI"},
+    {id:"PPD07",nama:"PPD PADANG TERAP"},{id:"PPD08",nama:"PPD PENDANG"},
+    {id:"PPD09",nama:"PPD SIK"},{id:"PPD10",nama:"PPD YAN"},
+  ],
+  kategori: [
+    {id:"K01",nama:"Pencapaian Akademik (SPM/STPM/STAM/UPSR)",aktif:true},
+    {id:"K02",nama:"Kurikulum & P&P",aktif:true},
+    {id:"K03",nama:"Kokurikulum & Sukan",aktif:true},
+    {id:"K04",nama:"Disiplin Murid",aktif:true},
+    {id:"K05",nama:"Kehadiran (Murid & Guru)",aktif:true},
+    {id:"K06",nama:"Sumber Manusia & Perjawatan",aktif:true},
+    {id:"K07",nama:"Infrastruktur & Kemudahan Sekolah",aktif:true},
+    {id:"K08",nama:"Kewangan & Peruntukan",aktif:true},
+    {id:"K09",nama:"Data & Pelaporan (EMIS/Sistem)",aktif:true},
+    {id:"K10",nama:"Isu Lain / Ad-hoc",aktif:true},
+  ],
+  config:{ HARI_TARIKH_AKHIR:"Khamis", TINDAK_SUSUL_SLA_HARI:14, TAHUN_SEMASA:2026,
+           REMINDER_EMEL_AKTIF:true, REMINDER_BANNER_AKTIF:true },
+  users:[
+    {username:"admin_s4pd",nama:"Admin JPN S4PD",peranan:"JPN_ADMIN",ppdId:null},
+    {username:"ppd01",nama:"Pegawai PPD Baling",peranan:"PPD",ppdId:"PPD01"},
+    {username:"ppd02",nama:"Pegawai PPD Kota Setar",peranan:"PPD",ppdId:"PPD02"},
+    {username:"ppd03",nama:"Pegawai PPD Kuala Muda",peranan:"PPD",ppdId:"PPD03"},
+    {username:"ppd04",nama:"Pegawai PPD Kubang Pasu",peranan:"PPD",ppdId:"PPD04"},
+    {username:"ppd05",nama:"Pegawai PPD Kulim/BB",peranan:"PPD",ppdId:"PPD05"},
+    {username:"ppd06",nama:"Pegawai PPD Langkawi",peranan:"PPD",ppdId:"PPD06"},
+    {username:"ppd07",nama:"Pegawai PPD Padang Terap",peranan:"PPD",ppdId:"PPD07"},
+    {username:"ppd08",nama:"Pegawai PPD Pendang",peranan:"PPD",ppdId:"PPD08"},
+    {username:"ppd09",nama:"Pegawai PPD Sik",peranan:"PPD",ppdId:"PPD09"},
+    {username:"ppd10",nama:"Pegawai PPD Yan",peranan:"PPD",ppdId:"PPD10"},
+  ],
+  weeks:[
+    {no:1,tarikh:"2026-07-16"},{no:2,tarikh:"2026-07-23"},
+    {no:3,tarikh:"2026-07-30"},{no:4,tarikh:"2026-08-06"},
+  ],
+  dialog:[], // diisi generateDummy()
+  isu:[],
+  tindakSusul:[],
+  maklumBalas:[],
+};
+
+/* --- helper hari dalam Bahasa Malaysia --- */
+function hariMelayu(dateStr){
+  const hari=["Ahad","Isnin","Selasa","Rabu","Khamis","Jumaat","Sabtu"];
+  return hari[new Date(dateStr).getDay()];
+}
+
+/* --- generate demo transaksi --- */
+(function generateDummy(){
+  const skip = new Set(["PPD03-2","PPD07-3","PPD09-4","PPD02-4","PPD05-4","PPD10-3"]);
+  const issueTemplates = [
+    ["K01","Pencapaian pra-SPM Tingkatan 5 di beberapa sekolah masih di bawah sasaran daerah.","Laksana program intervensi terarah & pantau headcount setiap 2 minggu.","Sektor Pengurusan Akademik"],
+    ["K02","Sebahagian sekolah belum melaksanakan PdP berasaskan data sepenuhnya.","Adakan bimbingan SISC+ dan pemantauan bilik darjah.","Sektor Pengurusan Akademik / SISC+"],
+    ["K03","Penyertaan kokurikulum peringkat negeri kurang memberangsangkan bagi sekolah luar bandar.","Selaras jadual latihan pusat & bantuan pengangkutan.","Sektor Pembangunan Kemanusiaan"],
+    ["K04","Kes disiplin berulang dikesan di sebuah sekolah menengah — perlu pemantauan lanjut.","Rujuk kaunselor daerah & pantau kes secara berkala.","Sektor Psikologi & Kaunseling"],
+    ["K05","Kehadiran guru ganti belum direkod secara konsisten dalam sistem.","Ingatkan sekolah kemaskini rekod & audit mingguan.","Sektor Pengurusan Sekolah"],
+    ["K06","Kekosongan jawatan Guru Besar di dua buah sekolah masih belum diisi.","Maklum ke BPSM dan cadang pengurusan sementara.","Sektor Khidmat Pengurusan (SPS)"],
+    ["K07","Bumbung dewan sekolah rosak, memerlukan baik pulih segera.","Buat lawatan tapak & mohon peruntukan penyelenggaraan.","Sektor Pembangunan & Bekalan"],
+    ["K08","Peruntukan PCG suku tahun belum dibelanjakan sepenuhnya oleh sebilangan sekolah.","Ingatkan sekolah & pantau perbelanjaan mengikut takwim.","Sektor Kewangan"],
+    ["K09","Data EMIS bagi sebilangan sekolah tidak dikemaskini sejak bulan lepas.","Hantar makluman & tetapkan tarikh akhir kemaskini.","Sektor Pengurusan Maklumat (S4PD)"],
+    ["K10","Aduan ibu bapa berkaitan pengangkutan sekolah di kawasan pedalaman.","Siasat aduan & berhubung dengan pihak berkaitan.","Sektor Pengurusan Sekolah"],
+  ];
+  const pengerusiList=["Pegawai Pendidikan Daerah","Timbalan PPD (Pengurusan Sekolah)","Timbalan PPD (Pengurusan Akademik)"];
+  const masaList=["9:00 pagi","10:00 pagi","2:30 petang","3:00 petang"];
+  let did=1, iid=1, tid=1, fid=1;
+  const statusCycle=["Selesai","Dalam Tindakan","Belum Mula","Dalam Tindakan","Selesai"];
+  const feedbacks=[
+    "Mohon PPD pantau lebih kerap dan laporkan kemajuan setiap 2 minggu.",
+    "Baik. Teruskan pemantauan dan sertakan bukti tindakan pada laporan akan datang.",
+    "JPN akan bantu salurkan maklumat ini ke bahagian berkaitan untuk tindakan lanjut.",
+    "Isu ini telah berulang — mohon segerakan tindakan pembetulan.",
+  ];
+  let seed=42; const rand=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+  const pick=(a)=>a[Math.floor(rand()*a.length)];
+
+  DB.weeks.forEach(w=>{
+    DB.ppd.forEach(p=>{
+      if(skip.has(`${p.id}-${w.no}`)) return;
+      const dId=`D${String(did).padStart(4,"0")}`;
+      const submit=new Date(w.tarikh); submit.setDate(submit.getDate()+1);
+      const luarKawalanSesi = rand()<.5; // sebahagian sesi ada perkara luar kawalan KPPD
+      DB.dialog.push({id:dId,ppdId:p.id,tarikh:w.tarikh,minggu:w.no,tahun:2026,
+        pengerusi:pick(pengerusiList),
+        hari:hariMelayu(w.tarikh),
+        masa:pick(masaList),
+        tempat:`Bilik Mesyuarat Utama, ${p.nama}`,
+        kehadiran:[`${p.nama.replace('PPD ','PPD ')} — Pegawai Pendidikan Daerah`,
+                   "Timbalan PPD (Pengurusan Akademik)","Ketua-ketua Unit","Pegawai SISC+ Daerah"],
+        ringkasan:`Dialog Prestasi mingguan ${p.nama} — pemantauan prestasi & isu semasa daerah.`,
+        status:"Selesai", tarikhSubmit:submit.toISOString().slice(0,10),
+        dicatatOleh:`Pegawai Pentadbiran ${p.nama}`,
+        disahkanOleh:`Pegawai Pendidikan Daerah ${p.nama.replace('PPD ','')}`,
+        dihantarKePengarah: w.no<=3 ? (rand()<.75) : (rand()<.4),
+        tarikhHantarPengarah: null});
+      // 2-3 isu
+      const n=rand()<.5?2:3;
+      const chosen=[...issueTemplates].sort(()=>rand()-.5).slice(0,n);
+      // kategori yang lazimnya di luar kawalan KPPD (perlu penyelarasan JPN)
+      const luarKawalanKat=["K06","K07","K08"];
+      chosen.forEach(([kid,desc,tindakan,sektor])=>{
+        const perlu = rand()<.67;
+        const kawalanKPPD = luarKawalanKat.includes(kid) ? "Tidak" : (rand()<.85?"Ya":"Tidak");
+        const makluman = rand()<.6 ? "Telah Dimaklumkan" : "Belum Dimaklumkan";
+        const iId=`I${String(iid).padStart(4,"0")}`;
+        DB.isu.push({id:iId,dialogId:dId,ppdId:p.id,kategoriId:kid,penerangan:desc,
+          tindakan:tindakan,sektorPegawai:sektor,perluTindakSusul:perlu,tarikh:w.tarikh,
+          kawalanKPPD:kawalanKPPD, statusMakluman:makluman,
+          tarikhMakluman: makluman==="Telah Dimaklumkan" ? w.tarikh : null});
+        iid++;
+        if(perlu){
+          const target=new Date(w.tarikh); target.setDate(target.getDate()+14);
+          const st=statusCycle[tid%statusCycle.length];
+          let selesai=null;
+          if(st==="Selesai"){const s=new Date(target);s.setDate(s.getDate()-2);selesai=s.toISOString().slice(0,10);}
+          DB.tindakSusul.push({id:`TS${String(tid).padStart(4,"0")}`,isuId:iId,dialogId:dId,ppdId:p.id,
+            kategoriId:kid,pic:sektor,tarikhSasaran:target.toISOString().slice(0,10),
+            status:st,tarikhSelesai:selesai,
+            catatan:st==="Selesai"?"Tindakan telah dilaksanakan & disahkan PPD.":st==="Dalam Tindakan"?"Dalam proses pelaksanaan oleh pihak sekolah/PPD.":"Menunggu peruntukan/kelulusan sebelum tindakan dimulakan."});
+          tid++;
+        }
+      });
+      did++;
+    });
+  });
+  // sample feedback on ~12 dialogs
+  [...DB.dialog].sort(()=>rand()-.5).slice(0,12).forEach(d=>{
+    const t=new Date(d.tarikh);t.setDate(t.getDate()+2);
+    DB.maklumBalas.push({id:`FB${String(fid).padStart(4,"0")}`,dialogId:d.id,isuId:null,
+      komen:pick(feedbacks),oleh:"Admin JPN S4PD",tarikh:t.toISOString().slice(0,10)});
+    fid++;
+  });
+})();
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $=(s)=>document.querySelector(s);
+let SESSION=null, CURRENT_PAGE=null, LATEST_WEEK=4;
+const normId=(v)=>String(v==null?"":v).trim().toUpperCase();
+const samePpd=(a,b)=>normId(a)===normId(b);
+const ppdName=(id)=>{const p=DB.ppd.find(x=>samePpd(x.id,id));return p?p.nama:id;};
+/* PPD_ID dalam laporan yang tiada dalam tab PPD (punca 'Belum' walaupun ada laporan) */
+function ppdIdTakPadan(){
+  const sah=new Set(DB.ppd.map(p=>normId(p.id)));
+  const jumpa=new Set();
+  dialogAktif(DB.dialog).forEach(d=>{ if(!sah.has(normId(d.ppdId))) jumpa.add(d.ppdId); });
+  return [...jumpa];
+}
+const katName=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama:id;};
+const katShort=(id)=>{const k=DB.kategori.find(x=>x.id===id);return k?k.nama.split("(")[0].trim():id;};
+const BULAN_MS=["Januari","Februari","Mac","April","Mei","Jun","Julai","Ogos","September","Oktober","November","Disember"];
+const fmtDate=(s)=>{
+  if(!s)return"—";
+  const d=new Date(s);
+  if(isNaN(d.getTime()))return String(s);
+  return `${String(d.getDate()).padStart(2,"0")} ${BULAN_MS[d.getMonth()]} ${d.getFullYear()}`;
+};
+/* --- tarikh & minggu semasa (untuk sistem kosong / rekod baharu) --- */
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function mingguSemasa(d){ // sepadan dengan GAS mingguDalamTahun()
+  const onejan=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+}
+function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
+  const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
+  return w?w.tarikh:todayISO();
+}
+function toast(msg){const t=$("#toast");$("#toastMsg").textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
+function statusBadge(st){
+  const m={"Selesai":"b-ok","Dalam Tindakan":"b-progress","Belum Mula":"b-pending"};
+  return `<span class="badge ${m[st]||'b-neutral'}">${st}</span>`;
+}
+function slaCheck(ts){
+  if(ts.status==="Selesai")return"";
+  const today=new Date("2026-08-09"); const target=new Date(ts.tarikhSasaran);
+  if(today>target)return `<span class="badge b-danger">Tertunggak</span>`;
+  return "";
+}
+
+/* ============================================================
+   GAMBAR — sumber & pratonton (demo: data URL · live: Drive)
+   ============================================================ */
+function gambarSrc(val){
+  if(!val)return null;
+  if(String(val).startsWith("data:"))return val;           // demo (data URL)
+  if(String(val).startsWith("http"))return val;            // URL penuh
+  return `https://drive.google.com/thumbnail?id=${val}&sz=w800`; // live: fileId Drive
+}
+function gambarThumbsHtml(d){
+  const list=[d.gambar1,d.gambar2].map(gambarSrc).filter(Boolean);
+  if(!list.length)return "";
+  return `<div class="gambar-thumbs">`+list.map((src,idx)=>
+    `<img src="${src}" alt="Gambar ${idx+1}" onclick="lihatGambar('${src.replace(/'/g,"")}')">`).join("")+`</div>`;
+}
+function lihatGambar(src){
+  const m=document.createElement("div");m.className="modal-back";m.id="modalBack";
+  m.innerHTML=`<div class="modal" style="max-width:720px"><div class="modal-head"><h3>Lampiran Gambar</h3>
+    <button class="banner-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" style="text-align:center"><img src="${src}" style="max-width:100%;border-radius:10px"></div></div>`;
+  m.onclick=(e)=>{if(e.target===m)closeModal();};
+  document.body.appendChild(m);
+}
+
+/* ============================================================
+   JANA PDF — Format rasmi LAMPIRAN A (DP PPD), potret A4
+   ============================================================ */
+function drawCrestFallback(doc,NAVY,BRASS,M){
+  doc.setFillColor(...BRASS); doc.roundedRect(M,7,12,12,2,2,"F");
+  doc.setTextColor(...NAVY); doc.setFont("times","bold"); doc.setFontSize(15);
+  doc.text("D", M+6, 15.5, {align:"center"});
+}
+async function generateLaporanPDF(dialogId, opts={}){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
+  const { jsPDF } = window.jspdf;
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(!d){toast("Rekod dialog tidak dijumpai");return;}
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  await tulisLaporanKeDoc(doc,d,{pertama:true});
+  const fnamePPD0=ppdName(d.ppdId).replace(/[^a-zA-Z0-9]/g,"_");
+  const filename0=`Laporan_DP_${fnamePPD0}_M${d.minggu}_${d.tahun}.pdf`;
+  if(opts.returnDoc)return doc;
+  doc.save(filename0);
+  toast("Laporan PDF dijana");
+}
+
+/* Tulis SATU laporan ke dalam dokumen jsPDF sedia ada (guna semula untuk PDF gabungan) */
+async function tulisLaporanKeDoc(doc, d, opts={}){
+  const dialogId=d.id;
+  const issues=DB.isu.filter(i=>i.dialogId===dialogId);
+  const gambarData=await resolveGambar(d);   // [dataUrl|null, dataUrl|null]
+  if(!opts.pertama) doc.addPage();
+  const pageW=doc.internal.pageSize.getWidth();   // 210
+  const M=18;                                     // margin
+  const NAVY=[15,41,66], BRASS=[184,134,11], INK=[26,36,48];
+
+  /* ---- Kepala surat (bergambar/berformat) ---- */
+  doc.setFillColor(...NAVY); doc.rect(0,0,pageW,26,"F");
+  if(LOGO_PDF){
+    try{ doc.addImage(LOGO_PDF,"PNG",M,5,16,16); }
+    catch(e){ drawCrestFallback(doc,NAVY,BRASS,M); }
+  }else{
+    drawCrestFallback(doc,NAVY,BRASS,M);
+  }
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH", M+20, 12.5);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+  doc.setTextColor(224,184,74);
+  doc.text("Sektor Perancangan & Pengurusan PPD (S4PD)", M+20, 18);
+
+  /* ---- LAMPIRAN A ---- */
+  doc.setTextColor(...INK);
+  doc.setFont("helvetica","bolditalic"); doc.setFontSize(11);
+  doc.text("LAMPIRAN A", pageW-M, 34, {align:"right"});
+
+  /* ---- Tajuk ---- */
+  doc.setFont("helvetica","bold"); doc.setFontSize(13);
+  doc.text("LAPORAN", pageW/2, 43, {align:"center"});
+  doc.setFontSize(12);
+  doc.text("Dialog Prestasi Pejabat Pendidikan Daerah", pageW/2, 50, {align:"center"});
+  doc.text("DP PPD", pageW/2, 57, {align:"center"});
+  doc.setDrawColor(...BRASS); doc.setLineWidth(0.6);
+  doc.line(M, 61, pageW-M, 61);
+
+  /* ---- Butiran bernombor ---- */
+  let y=71;
+  doc.setFontSize(11); doc.setTextColor(...INK);
+  const labelW=32;
+  function field(no,label,val){
+    doc.setFont("helvetica","bold"); doc.text(`${no}.`, M, y);
+    doc.text(label, M+7, y);
+    doc.setFont("helvetica","normal");
+    const lines=doc.splitTextToSize(val||"—", pageW-M-(M+7+labelW));
+    doc.text(lines, M+7+labelW, y);
+    y+=Math.max(7, lines.length*6);
+  }
+  field(1,"Pengerusi","  :  "+(d.pengerusi||"—"));
+  field(2,"Tarikh","  :  "+fmtDate(d.tarikh));
+  field(3,"Hari","  :  "+(d.hari||hariMelayu(d.tarikh)));
+  field(4,"Masa","  :  "+(d.masa||"—"));
+  field(5,"Tempat","  :  "+(d.tempat||"—"));
+
+  // 6. Kehadiran (senarai a,b,c,d)
+  doc.setFont("helvetica","bold"); doc.text("6.", M, y); doc.text("Kehadiran", M+7, y);
+  doc.setFont("helvetica","normal"); doc.text("  :", M+7+labelW-4, y);
+  const kehadiran=Array.isArray(d.kehadiran)?d.kehadiran:(d.kehadiran?String(d.kehadiran).split(/\n|·/).map(s=>s.trim()).filter(Boolean):[]);
+  y+=7;
+  const abjad="abcdefghij";
+  if(kehadiran.length){
+    kehadiran.forEach((k,idx)=>{
+      const lines=doc.splitTextToSize(`${abjad[idx]||"-"}.  ${k}`, pageW-M-(M+12));
+      doc.text(lines, M+12, y); y+=Math.max(6, lines.length*5.5);
+    });
+  }else{doc.text("—", M+12, y); y+=6;}
+  y+=2;
+
+  // 7. Isu dan Tindakan (jadual)
+  doc.setFont("helvetica","bold"); doc.text("7.", M, y); doc.text("Isu dan Tindakan :", M+7, y);
+  y+=3;
+  const rows=issues.map((i,idx)=>[String(idx+1), i.penerangan||"", i.tindakan||"", i.sektorPegawai||""]);
+  if(!rows.length)rows.push(["","","",""]);
+  doc.autoTable({
+    startY:y+2,
+    head:[["BIL.","ISU","TINDAKAN","SEKTOR /\nPEGAWAI"]],
+    body:rows,
+    margin:{left:M,right:M},
+    styles:{font:"helvetica",fontSize:9.5,cellPadding:2.5,valign:"top",lineColor:[120,120,120],lineWidth:0.2,textColor:INK},
+    headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:"bold",halign:"center",fontSize:9.5},
+    columnStyles:{0:{cellWidth:13,halign:"center"},1:{cellWidth:66},2:{cellWidth:66},3:{cellWidth:29}},
+    theme:"grid",
+  });
+  y=doc.lastAutoTable.finalY+10;
+
+  // Nota perkara luar kawalan KPPD (untuk penyelarasan JPN)
+  const luarBil=issues.map((i,idx)=>({no:idx+1,luar:(i.kawalanKPPD||"Ya")==="Tidak"})).filter(x=>x.luar).map(x=>x.no);
+  if(luarBil.length){
+    doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor(150,30,30);
+    const note=`Nota: Bil. ${luarBil.join(", ")} adalah perkara di luar kawalan KPPD — dikemukakan untuk penyelarasan di peringkat JPN.`;
+    const nlines=doc.splitTextToSize(note, pageW-2*M);
+    doc.text(nlines, M, y); y+=nlines.length*4.5+6;
+    doc.setTextColor(...INK);
+  }else{y+=4;}
+
+  /* ---- Tandatangan ---- */
+  if(y>240){doc.addPage();y=40;}
+  const colW=(pageW-2*M-12)/2;          // lebar setiap lajur tandatangan
+  const colL=M, colR=M+colW+12;
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  doc.text("Dicatat oleh:", colL, y);
+  doc.text("Disahkan oleh:", colR, y);
+  y+=16;
+  doc.setDrawColor(120,120,120); doc.setLineWidth(0.3);
+  doc.line(colL, y, colL+colW, y);
+  doc.line(colR, y, colR+colW, y);
+  y+=6;
+  doc.setFontSize(9.5);
+  // balut nama supaya tidak bertindih dengan lajur sebelah
+  const namaL=doc.splitTextToSize(d.dicatatOleh||"………………………………", colW);
+  const namaR=doc.splitTextToSize(d.disahkanOleh||"………………………………", colW);
+  doc.text(namaL, colL, y);
+  doc.text(namaR, colR, y);
+  y+=Math.max(namaL.length, namaR.length)*4.6;   // turun ikut baris terbanyak
+
+  // s.k. Pengarah Pendidikan JPN (laporan dihantar untuk penyelarasan)
+  y+=12;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...NAVY);
+  doc.text("s.k.", M, y);
+  doc.setFont("helvetica","normal"); doc.setTextColor(...INK);
+  doc.text("Pengarah Pendidikan, Jabatan Pendidikan Negeri Kedah", M+10, y);
+  if(d.dihantarKePengarah){
+    doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor(31,138,76);
+    doc.text(`(Dihantar${d.tarikhHantarPengarah?" · "+fmtDate(d.tarikhHantarPengarah):""})`, M+10, y+4.5);
+    doc.setTextColor(...INK);
+  }
+
+  /* ---- Lampiran Gambar (halaman berasingan) ---- */
+  const validImgs=gambarData.filter(Boolean);
+  if(validImgs.length){
+    doc.addPage();
+    // kepala surat ringkas
+    doc.setFillColor(...NAVY); doc.rect(0,0,pageW,20,"F");
+    if(LOGO_PDF){try{doc.addImage(LOGO_PDF,"PNG",M,3,14,14);}catch(e){}}
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(11);
+    doc.text("LAMPIRAN GAMBAR", M+18, 12);
+    doc.setTextColor(...INK);
+    doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text(`${ppdName(d.ppdId)} · Dialog Prestasi Minggu ${d.minggu}/${d.tahun}`, M, 28);
+    let gy=34;
+    const maxW=pageW-2*M;
+    const maxH=(doc.internal.pageSize.getHeight()-40-14*validImgs.length)/validImgs.length; // ruang seimbang
+    validImgs.forEach((data,idx)=>{
+      try{
+        const props=doc.getImageProperties(data);
+        let w=maxW, h=w*props.height/props.width;
+        if(h>maxH){h=maxH; w=h*props.width/props.height;}
+        const x=(pageW-w)/2;
+        doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...NAVY);
+        doc.text(`Gambar ${idx+1}`, M, gy);
+        doc.setTextColor(...INK);
+        const fmt=/^data:image\/png/i.test(data)?"PNG":"JPEG";
+        doc.addImage(data,fmt,x,gy+3,w,h);
+        doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);doc.rect(x,gy+3,w,h);
+        gy+=h+16;
+      }catch(e){/* langkau gambar rosak */}
+    });
+  }
+
+  /* ---- Kaki ---- */
+  const ph=doc.internal.pageSize.getHeight();
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text(`Dijana melalui Sistem Pemantauan Dialog Prestasi PPD · ${ppdName(d.ppdId)} · Minggu ${d.minggu}/${d.tahun}`, pageW/2, ph-8, {align:"center"});
+
+  const fnamePPD=ppdName(d.ppdId).replace(/[^a-zA-Z0-9]/g,"_");
+  const filename=`Laporan_DP_${fnamePPD}_M${d.minggu}_${d.tahun}.pdf`;
+  return {doc, filename};
+}
+/* ============================================================
+   PDF GABUNGAN — semua laporan mengikut minggu & pilihan PPD
+   ============================================================ */
+function laporanTerpilih(minggu, ppdId){
+  let list = dialogAktif(DB.dialog).filter(d=>Number(d.minggu)===Number(minggu));
+  if(ppdId) list = list.filter(d=>samePpd(d.ppdId,ppdId));
+  // jika ada pendua, ambil laporan terkini sahaja bagi setiap PPD
+  const ikutPpd={};
+  list.forEach(d=>{
+    const k=normId(d.ppdId);
+    if(!ikutPpd[k] || String(d.tarikhSubmit||"").localeCompare(String(ikutPpd[k].tarikhSubmit||""))>0) ikutPpd[k]=d;
+  });
+  const susunan=DB.ppd.map(p=>normId(p.id));
+  return Object.values(ikutPpd).sort((a,b)=>susunan.indexOf(normId(a.ppdId))-susunan.indexOf(normId(b.ppdId)));
+}
+
+async function janaPDFGabungan(minggu, ppdId){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
+  const senarai=laporanTerpilih(minggu,ppdId);
+  if(!senarai.length){toast("Tiada laporan untuk pilihan ini");return;}
+  const btn=$("#btnJana");
+  if(btn){btn.disabled=true;btn.textContent="Menjana PDF…";}
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    mukaDepanGabungan(doc,minggu,ppdId,senarai);
+    for(const d of senarai){
+      if(btn)btn.textContent=`Menjana… (${senarai.indexOf(d)+1}/${senarai.length})`;
+      await tulisLaporanKeDoc(doc,d,{pertama:false});
+    }
+    const tag = ppdId ? ppdName(ppdId).replace(/[^a-zA-Z0-9]/g,"_") : "Semua_PPD";
+    doc.save(`Laporan_DP_${tag}_M${minggu}_${DB.config.TAHUN_SEMASA}.pdf`);
+    toast(`PDF gabungan dijana — ${senarai.length} laporan`);
+  }catch(err){
+    toast("Gagal menjana PDF gabungan");
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="⬇ Jana PDF Gabungan";}
+  }
+}
+
+/* Muka depan ringkasan untuk PDF gabungan */
+function mukaDepanGabungan(doc,minggu,ppdId,senarai){
+  const pageW=doc.internal.pageSize.getWidth();
+  const ph=doc.internal.pageSize.getHeight();
+  const M=18, NAVY=[15,41,66], BRASS=[184,134,11], INK=[26,36,48];
+  doc.setFillColor(...NAVY); doc.rect(0,0,pageW,58,"F");
+  if(LOGO_PDF){try{doc.addImage(LOGO_PDF,"PNG",pageW/2-13,8,26,26);}catch(e){}}
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH", pageW/2, 42, {align:"center"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.setTextColor(224,184,74);
+  doc.text("Sektor Perancangan & Pengurusan PPD (S4PD)", pageW/2, 49, {align:"center"});
+
+  doc.setTextColor(...INK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(17);
+  doc.text("HIMPUNAN LAPORAN DIALOG PRESTASI PPD", pageW/2, 74, {align:"center"});
+  doc.setDrawColor(...BRASS); doc.setLineWidth(0.6); doc.line(M,79,pageW-M,79);
+
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const skop = ppdId ? ppdName(ppdId) : `Semua PPD (${DB.ppd.length} daerah)`;
+  let y=90;
+  [["Minggu", `${minggu} / ${DB.config.TAHUN_SEMASA}`],
+   ["Skop", skop],
+   ["Bilangan laporan", `${senarai.length} laporan`],
+   ["Tarikh jana", fmtDate(todayISO())]].forEach(([k,v])=>{
+    doc.setFont("helvetica","bold"); doc.text(k, M, y);
+    doc.setFont("helvetica","normal"); doc.text(": "+v, M+42, y);
+    y+=8;
+  });
+
+  // Jadual kandungan
+  y+=6;
+  const rows=senarai.map((d,idx)=>{
+    const nIsu=DB.isu.filter(i=>i.dialogId===d.id).length;
+    const luar=DB.isu.filter(i=>i.dialogId===d.id && (i.kawalanKPPD||"Ya")==="Tidak").length;
+    return [String(idx+1), ppdName(d.ppdId), fmtDate(d.tarikh), String(nIsu), luar?String(luar):"—"];
+  });
+  doc.autoTable({
+    startY:y,
+    head:[["BIL.","PPD","TARIKH SESI","BIL. ISU","LUAR KAWALAN KPPD"]],
+    body:rows,
+    margin:{left:M,right:M},
+    styles:{font:"helvetica",fontSize:9.5,cellPadding:2.5,lineColor:[120,120,120],lineWidth:0.2,textColor:INK},
+    headStyles:{fillColor:NAVY,textColor:[255,255,255],fontStyle:"bold",halign:"center",fontSize:9},
+    columnStyles:{0:{cellWidth:14,halign:"center"},2:{cellWidth:32,halign:"center"},
+                  3:{cellWidth:22,halign:"center"},4:{cellWidth:36,halign:"center"}},
+    theme:"grid",
+  });
+
+  // PPD belum hantar (jika skop semua)
+  if(!ppdId){
+    const hantar=new Set(senarai.map(d=>normId(d.ppdId)));
+    const belum=DB.ppd.filter(p=>!hantar.has(normId(p.id))).map(p=>p.nama);
+    let yy=doc.lastAutoTable.finalY+10;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...NAVY);
+    doc.text(`Status pematuhan: ${senarai.length}/${DB.ppd.length} PPD telah menghantar`, M, yy);
+    if(belum.length){
+      yy+=6;
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(150,30,30);
+      const lines=doc.splitTextToSize("Belum hantar: "+belum.join(", "), pageW-2*M);
+      doc.text(lines, M, yy);
+    }
+    doc.setTextColor(...INK);
+  }
+
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text("Dijana melalui Sistem Pemantauan Dialog Prestasi PPD · JPN Kedah", pageW/2, ph-8, {align:"center"});
+}
+
+/* Dapatkan gambar sebagai data URL untuk PDF (demo terus · live via GAS) */
+async function resolveGambar(d){
+  const out=[];
+  for(const val of [d.gambar1,d.gambar2]){
+    if(!val){out.push(null);continue;}
+    if(String(val).startsWith("data:")){out.push(val);continue;}
+    if(!CONFIG.DEMO_MODE){
+      try{ const b64=await apiGet("getGambar",{id:val}); out.push(b64); }
+      catch(e){ out.push(null); }
+    }else{ out.push(null); }
+  }
+  return out;
+}
+
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+function quickLogin(u){$("#loginUser").value=u;$("#loginPass").value="demo";doLogin();}
+async function doLogin(){
+  const u=$("#loginUser").value.trim().toLowerCase();
+  const pass=$("#loginPass").value;
+  const btn=document.querySelector("#loginView .btn-primary");
+  if(CONFIG.DEMO_MODE){
+    const user=DB.users.find(x=>x.username===u);
+    if(!user){toast("Nama pengguna tidak dijumpai");return;}
+    enterApp(user); // DEMO: sebarang kata laluan diterima
+    return;
+  }
+  // ---- MOD LIVE: sahkan + muat data dalam SATU panggilan (lebih laju) ----
+  if(!u||!pass){toast("Sila isi nama pengguna & kata laluan");return;}
+  try{
+    if(btn){btn.disabled=true;btn.textContent="Log masuk…";}
+    const res=await apiPost("login",{username:u,password:pass}); // {user, init}
+    const user=res.user||res; // sokong format lama jika perlu
+    const sess={username:String(user.Username||u).toLowerCase(),nama:user.Nama,
+      peranan:user.Peranan,ppdId:user.PPD_ID&&user.PPD_ID!=="-"?user.PPD_ID:null};
+    if(res.init){
+      mapFromSheets(res.init);
+      LATEST_WEEK=mingguSemasa(new Date());
+    }else{
+      await loadAllData(); // fallback jika GAS versi lama
+    }
+    enterApp(sess);
+  }catch(err){
+    toast(err.message||"Log masuk gagal");
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="Log Masuk";}
+  }
+}
+function enterApp(user){
+  SESSION=user;
+  $("#loginView").classList.add("hidden");
+  $("#appView").classList.remove("hidden");
+  $("#ubName").textContent=user.nama;
+  $("#ubRole").textContent = user.peranan==="JPN_ADMIN" ? "JPN · Pentadbir" : ppdName(user.ppdId);
+  buildSidebar();
+  navigate(user.peranan==="JPN_ADMIN" ? "dashboard" : "borang");
+}
+function doLogout(){SESSION=null;$("#appView").classList.add("hidden");$("#loginView").classList.remove("hidden");$("#loginUser").value="";$("#loginPass").value="";}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const NAV = {
+  JPN_ADMIN:[
+    {group:"Pemantauan",items:[
+      {id:"dashboard",ico:"◈",label:"Dashboard"},
+      {id:"pematuhan",ico:"◱",label:"Status Pematuhan"},
+      {id:"senarai-isu",ico:"☰",label:"Senarai Isu"},
+      {id:"tindak-susul",ico:"◎",label:"Tindak Susul"},
+      {id:"penyelarasan",ico:"⇪",label:"Penyelarasan JPN"},
+      {id:"muat-turun",ico:"⬇",label:"Muat Turun Laporan"},
+    ]},
+    {group:"Pentadbiran",items:[
+      {id:"maklum-balas",ico:"✎",label:"Maklum Balas"},
+      {id:"admin",ico:"⚙",label:"Panel Admin"},
+    ]},
+  ],
+  PPD:[
+    {group:"Tugasan Saya",items:[
+      {id:"borang",ico:"✎",label:"Hantar Dialog"},
+      {id:"rekod",ico:"☰",label:"Rekod Dialog Saya"},
+      {id:"tindak-susul-ppd",ico:"◎",label:"Tindak Susul Saya"},
+    ]},
+  ],
+};
+const NAV_AWAM=[{group:"Pemantauan",items:[
+  {id:"dashboard",ico:"◈",label:"Dashboard"},
+  {id:"pematuhan",ico:"◱",label:"Status Pematuhan"},
+  {id:"senarai-isu",ico:"☰",label:"Senarai Isu"},
+  {id:"tindak-susul",ico:"◎",label:"Tindak Susul"},
+  {id:"penyelarasan",ico:"⇪",label:"Penyelarasan JPN"},
+  {id:"muat-turun",ico:"⬇",label:"Muat Turun Laporan"},
+]}];
+function buildSidebar(){
+  const nav=CONFIG.PUBLIC_MODE?NAV_AWAM:NAV[SESSION.peranan]; let h="";
+  nav.forEach(g=>{
+    h+=`<div class="nav-group-label">${g.group}</div>`;
+    g.items.forEach(it=>{
+      let badge="";
+      if(it.id==="tindak-susul"){const n=DB.tindakSusul.filter(t=>t.status!=="Selesai").length;badge=`<span class="nav-badge">${n}</span>`;}
+      if(it.id==="penyelarasan"){const n=isuAktif().filter(i=>i.kawalanKPPD==="Tidak").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
+      if(it.id==="tindak-susul-ppd"){const n=DB.tindakSusul.filter(t=>t.ppdId===SESSION.ppdId&&t.status!=="Selesai").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
+      h+=`<button class="nav-item" data-page="${it.id}" onclick="navigate('${it.id}')">
+        <span class="nav-ico">${it.ico}</span>${it.label}${badge}</button>`;
+    });
+  });
+  $("#sidebar").innerHTML=h;
+}
+function navigate(page){
+  CURRENT_PAGE=page;
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
+  $("#sidebar").classList.remove("open");
+  const R={dashboard:renderDashboard,pematuhan:renderPematuhan,"senarai-isu":renderSenaraiIsu,
+    "tindak-susul":renderTindakSusul,"maklum-balas":renderMaklumBalas,admin:renderAdmin,
+    penyelarasan:renderPenyelarasan,"muat-turun":renderMuatTurun,
+    borang:renderBorang,rekod:renderRekod,"tindak-susul-ppd":renderTindakSusulPPD};
+  (R[page]||(()=>{$("#main").innerHTML="";}))();
+  $("#main").scrollTop=0;
+}
+function toggleSidebar(){$("#sidebar").classList.toggle("open");}
+
+/* ============================================================
+   JPN: DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  const sahPpd=new Set(DB.ppd.map(x=>normId(x.id)));
+  const submittedThisWeek = ppdHantarMinggu(LATEST_WEEK).size;
+  const totalPPD = DB.ppd.length;
+  const outstanding = DB.tindakSusul.filter(t=>t.status!=="Selesai").length;
+  const overdue = DB.tindakSusul.filter(t=>t.status!=="Selesai"&&new Date("2026-08-09")>new Date(t.tarikhSasaran)).length;
+  const totalIsu = isuAktif().length;
+
+  // isu by kategori
+  const byKat={};
+  isuAktif().forEach(i=>{byKat[i.kategoriId]=(byKat[i.kategoriId]||0)+1;});
+  const katSorted=Object.entries(byKat).sort((a,b)=>b[1]-a[1]);
+  const maxKat=Math.max(...Object.values(byKat));
+
+  let h=`<div class="page-head"><div class="eyebrow">Ringkasan Eksekutif</div>
+    <h2>Dashboard Pemantauan</h2>
+    <p>Minggu ${LATEST_WEEK} · ${fmtDate(latestWeekTarikh())} · Tahun ${DB.config.TAHUN_SEMASA}</p></div>`;
+
+  if(CONFIG.DEMO_MODE){
+    h+=`<div class="demo-note"><b>Mod demo:</b> data ini terbenam dalam fail (dummy). Selepas GAS di-deploy, angka ini datang terus dari Google Sheets secara langsung.</div>`;
+  }
+
+  const takPadan=ppdIdTakPadan();
+  if(takPadan.length){
+    h+=`<div class="banner" style="background:var(--danger-bg);border-color:var(--danger)"><span class="b-ico">!</span><div class="banner-text" style="color:#8c2b20"><b>Amaran data:</b> ${takPadan.length} kod PPD dalam laporan tidak sepadan dengan tab <b>PPD</b>: <b>${takPadan.join(", ")}</b>. Laporan ini tidak dapat dipadankan, jadi status kekal "Belum". Betulkan lajur <b>PPD_ID</b> dalam tab <b>Users</b> supaya sama dengan tab <b>PPD</b>.</div></div>`;
+  }
+  const pendua=penduaMinggu(LATEST_WEEK);
+  if(pendua.length){
+    h+=`<div class="banner"><span class="b-ico">!</span><div class="banner-text"><b>Laporan pendua:</b> ${pendua.join(", ")} menghantar lebih daripada satu laporan bagi Minggu ${LATEST_WEEK}. Kiraan hanya mengambil <b>satu PPD sekali</b>, dan paparan menggunakan laporan terkini. PPD berkenaan boleh membatalkan laporan berlebihan di "Rekod Dialog Saya".</div></div>`;
+  }
+  h+=`<div class="stat-grid">
+    <div class="stat-card ${submittedThisWeek===totalPPD?'ok':'warn'}">
+      <div class="lbl">Hantar Minggu ${LATEST_WEEK}</div>
+      <div class="val">${submittedThisWeek}<span style="font-size:20px;color:var(--muted)">/${totalPPD}</span></div>
+      <div class="sub">${totalPPD-submittedThisWeek} PPD belum hantar</div>
+    </div>
+    <div class="stat-card"><div class="lbl">Jumlah Isu Direkod</div>
+      <div class="val">${totalIsu}</div><div class="sub">merentasi ${DB.weeks.length} minggu</div></div>
+    <div class="stat-card warn"><div class="lbl">Tindak Susul Aktif</div>
+      <div class="val">${outstanding}</div><div class="sub">belum selesai</div></div>
+    <div class="stat-card danger"><div class="lbl">Tertunggak (SLA)</div>
+      <div class="val">${overdue}</div><div class="sub">melepasi tarikh sasaran</div></div>
+  </div>`;
+
+  // compliance quick view minggu terkini
+  h+=`<div class="card"><div class="card-head"><div><h3>Status Hantar — Minggu ${LATEST_WEEK}</h3>
+    <div class="sub">Klik "Status Pematuhan" untuk lihat semua minggu</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="navigate('pematuhan')">Lihat Penuh →</button></div>
+    <div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th><th class="t-center">Status</th><th class="t-center">Bil. Isu</th><th>Tarikh Submit</th></tr></thead><tbody>`;
+  DB.ppd.forEach(p=>{
+    const d=dialogTerkini(p.id,LATEST_WEEK);
+    const nIsu=d?DB.isu.filter(i=>i.dialogId===d.id).length:0;
+    h+=`<tr><td><b>${p.nama}</b></td>
+      <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>
+      <td class="t-center">${d?nIsu:"—"}</td><td>${d?fmtDate(d.tarikhSubmit):"—"}</td></tr>`;
+  });
+  h+=`</tbody></table></div></div></div>`;
+
+  // isu by kategori bar
+  h+=`<div class="card"><div class="card-head"><h3>Taburan Isu Mengikut Kategori</h3></div><div class="card-body">`;
+  katSorted.forEach(([kid,n])=>{
+    h+=`<div style="margin-bottom:13px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+        <span style="font-weight:500">${katShort(kid)}</span><span style="font-weight:700;color:var(--navy)">${n}</span></div>
+      <div style="background:#eef1f4;border-radius:6px;height:9px;overflow:hidden">
+        <div style="width:${(n/maxKat*100)}%;height:100%;background:linear-gradient(90deg,var(--brass),var(--brass-light));border-radius:6px"></div></div></div>`;
+  });
+  h+=`</div></div>`;
+  $("#main").innerHTML=h;
+}
+
+/* ============================================================
+   JPN: STATUS PEMATUHAN (grid semua minggu)
+   ============================================================ */
+function renderPematuhan(){
+  let h=`<div class="page-head"><div class="eyebrow">Pemantauan</div><h2>Status Pematuhan Mingguan</h2>
+    <p>Pelaksanaan Dialog Prestasi setiap PPD mengikut minggu</p></div>`;
+  const takPadan=ppdIdTakPadan();
+  if(takPadan.length){
+    h+=`<div class="banner" style="background:var(--danger-bg);border-color:var(--danger)"><span class="b-ico">!</span><div class="banner-text" style="color:#8c2b20"><b>Amaran data:</b> ${takPadan.length} kod PPD dalam laporan tidak sepadan dengan tab <b>PPD</b>: <b>${takPadan.join(", ")}</b>. Laporan ini tidak dapat dipadankan, jadi status kekal "Belum". Betulkan lajur <b>PPD_ID</b> dalam tab <b>Users</b> supaya sama dengan tab <b>PPD</b>.</div></div>`;
+  }
+  h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th>`;
+  DB.weeks.forEach(w=>h+=`<th class="t-center">Minggu ${w.no}<br><span style="font-weight:500;font-size:10px;color:#aab">${fmtDate(w.tarikh)}</span></th>`);
+  h+=`<th class="t-center">Kadar</th></tr></thead><tbody>`;
+  DB.ppd.forEach(p=>{
+    let hantar=0;
+    let cells="";
+    DB.weeks.forEach(w=>{
+      const d=dialogTerkini(p.id,w.no);
+      if(d)hantar++;
+      cells+=`<td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>`;
+    });
+    const kadar=Math.round(hantar/DB.weeks.length*100);
+    const col=kadar===100?"var(--ok)":kadar>=50?"var(--brass)":"var(--danger)";
+    h+=`<tr><td><b>${p.nama}</b></td>${cells}<td class="t-center"><b style="color:${col}">${kadar}%</b></td></tr>`;
+  });
+  // footer totals
+  h+=`</tbody><tfoot><tr style="background:#fafbfc;font-weight:700"><td>Jumlah Hantar</td>`;
+  DB.weeks.forEach(w=>{
+    const sahSet=new Set(DB.ppd.map(x=>normId(x.id)));
+    const n=ppdHantarMinggu(w.no).size;
+    h+=`<td class="t-center"><b style="color:var(--navy)">${n}/${DB.ppd.length}</b></td>`;
+  });
+  h+=`<td></td></tr></tfoot></table></div></div></div>`;
+  $("#main").innerHTML=h;
+}
+
+/* ============================================================
+   JPN: SENARAI ISU
+   ============================================================ */
+function renderSenaraiIsu(){
+  let h=`<div class="page-head"><div class="eyebrow">Pemantauan</div><h2>Senarai Isu Perbincangan</h2>
+    <p>Semua isu yang dibincangkan dalam sesi Dialog Prestasi</p></div>`;
+  h+=`<div class="filter-bar">
+    <select id="fKat" onchange="filterIsu()"><option value="">Semua Kategori</option>
+      ${DB.kategori.map(k=>`<option value="${k.id}">${katShort(k.id)}</option>`).join("")}</select>
+    <select id="fPpd" onchange="filterIsu()"><option value="">Semua PPD</option>
+      ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}</select>
+    <select id="fWeek" onchange="filterIsu()"><option value="">Semua Minggu</option>
+      ${DB.weeks.map(w=>`<option value="${w.no}">Minggu ${w.no}</option>`).join("")}</select>
+    <select id="fKawalan" onchange="filterIsu()"><option value="">Semua (Kawalan KPPD)</option>
+      <option value="Ya">Di bawah kawalan KPPD</option>
+      <option value="Tidak">Luar kawalan KPPD</option></select>
+  </div>`;
+  h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr>
+    <th>PPD</th><th>Minggu</th><th>Kategori</th><th>Isu</th>
+    <th class="t-center">Kawalan KPPD</th><th class="t-center">Makluman</th><th class="t-center">Tindak Susul</th></tr></thead>
+    <tbody id="isuBody"></tbody></table></div></div></div>`;
+  $("#main").innerHTML=h;
+  filterIsu();
+}
+function filterIsu(){
+  const fk=$("#fKat").value,fp=$("#fPpd").value,fw=$("#fWeek").value,fc=$("#fKawalan").value;
+  let rows=isuAktif().filter(i=>{
+    if(fk&&i.kategoriId!==fk)return false;
+    if(fp&&i.ppdId!==fp)return false;
+    if(fc&&(i.kawalanKPPD||"Ya")!==fc)return false;
+    if(fw){const d=DB.dialog.find(x=>x.id===i.dialogId);if(!d||d.minggu!=fw)return false;}
+    return true;
+  });
+  let h="";
+  rows.forEach(i=>{
+    const d=DB.dialog.find(x=>x.id===i.dialogId);
+    const kppd=(i.kawalanKPPD||"Ya")==="Ya";
+    const dimaklum=i.statusMakluman==="Telah Dimaklumkan";
+    h+=`<tr><td><b>${ppdName(i.ppdId)}</b></td><td><span class="pill">M${d?d.minggu:"?"}</span></td>
+      <td><span class="badge b-cat">${katShort(i.kategoriId)}</span></td>
+      <td style="max-width:320px">${i.penerangan}</td>
+      <td class="t-center">${kppd?'<span class="badge b-neutral">Ya</span>':'<span class="badge b-pending">Luar Kawalan</span>'}</td>
+      <td class="t-center">${dimaklum?'<span class="badge b-ok">Dimaklumkan</span>':'<span class="badge b-danger">Belum</span>'}</td>
+      <td class="t-center">${i.perluTindakSusul?'<span class="badge b-progress">Ya</span>':'<span class="badge b-neutral">Tidak</span>'}</td></tr>`;
+  });
+  if(!rows.length)h=`<tr><td colspan="7"><div class="empty"><div class="ico">☰</div>Tiada isu untuk tapisan ini.</div></td></tr>`;
+  $("#isuBody").innerHTML=h;
+}
+
+/* ============================================================
+   JPN: TINDAK SUSUL
+   ============================================================ */
+function renderTindakSusul(){
+  let h=`<div class="page-head"><div class="eyebrow">Pemantauan</div><h2>Tindak Susul</h2>
+    <p>Jejak item tindakan daripada isu Dialog Prestasi · SLA ${DB.config.TINDAK_SUSUL_SLA_HARI} hari</p></div>`;
+  h+=`<div class="filter-bar">
+    <select id="fStatus" onchange="filterTS()"><option value="">Semua Status</option>
+      <option>Belum Mula</option><option>Dalam Tindakan</option><option>Selesai</option></select>
+    <select id="fPpdTS" onchange="filterTS()"><option value="">Semua PPD</option>
+      ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}</select>
+  </div>`;
+  h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr>
+    <th>PPD</th><th>Kategori</th><th>Isu</th><th>PIC</th><th>Sasaran</th><th class="t-center">Status</th></tr></thead>
+    <tbody id="tsBody"></tbody></table></div></div></div>`;
+  $("#main").innerHTML=h;
+  filterTS();
+}
+function filterTS(){
+  const fs=$("#fStatus").value,fp=$("#fPpdTS").value;
+  let rows=DB.tindakSusul.filter(t=>{
+    if(fs&&t.status!==fs)return false;
+    if(fp&&t.ppdId!==fp)return false;return true;
+  });
+  let h="";
+  rows.forEach(t=>{
+    const isu=DB.isu.find(x=>x.id===t.isuId);
+    h+=`<tr><td><b>${ppdName(t.ppdId)}</b></td>
+      <td><span class="badge b-cat">${katShort(t.kategoriId)}</span></td>
+      <td style="max-width:280px;font-size:13px">${isu?isu.penerangan:"—"}</td>
+      <td>${t.pic}</td><td>${fmtDate(t.tarikhSasaran)} ${slaCheck(t)}</td>
+      <td class="t-center">${statusBadge(t.status)}</td></tr>`;
+  });
+  if(!rows.length)h=`<tr><td colspan="6"><div class="empty"><div class="ico">◎</div>Tiada tindak susul untuk tapisan ini.</div></td></tr>`;
+  $("#tsBody").innerHTML=h;
+}
+
+/* ============================================================
+   JPN: MAKLUM BALAS
+   ============================================================ */
+function renderMaklumBalas(){
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Maklum Balas kepada PPD</h2>
+    <p>Beri komen JPN pada sesi Dialog Prestasi — PPD nampak bila log masuk</p></div>`;
+  h+=`<div class="filter-bar"><select id="fbPpd" onchange="renderMBList()"><option value="">Semua PPD</option>
+    ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}</select></div>`;
+  h+=`<div id="mbList"></div>`;
+  $("#main").innerHTML=h;
+  renderMBList();
+}
+function renderMBList(){
+  const fp=$("#fbPpd")?$("#fbPpd").value:"";
+  let dialogs=dialogAktif(DB.dialog).filter(d=>!fp||d.ppdId===fp).sort((a,b)=>b.minggu-a.minggu);
+  let h="";
+  dialogs.slice(0,20).forEach(d=>{
+    const nIsu=DB.isu.filter(i=>i.dialogId===d.id).length;
+    const fbs=DB.maklumBalas.filter(f=>f.dialogId===d.id);
+    h+=`<div class="card"><div class="card-head"><div>
+      <h3 style="font-size:16px">${ppdName(d.ppdId)} · Minggu ${d.minggu}</h3>
+      <div class="sub">${fmtDate(d.tarikh)} · ${nIsu} isu dibincangkan</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ PDF</button>
+        <button class="btn btn-brass btn-sm" onclick="openFeedback('${d.id}')">+ Beri Maklum Balas</button></div></div>
+      <div class="card-body">`;
+    const thumbs=gambarThumbsHtml(d);
+    if(thumbs)h+=`<div style="margin-bottom:14px">${thumbs}</div>`;
+    if(fbs.length){
+      fbs.forEach(f=>{h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`;});
+    }else{
+      h+=`<div style="color:var(--muted);font-size:13px">Belum ada maklum balas untuk sesi ini.</div>`;
+    }
+    h+=`</div></div>`;
+  });
+  $("#mbList").innerHTML=h;
+}
+function openFeedback(dialogId){
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  showModal(`Maklum Balas — ${ppdName(d.ppdId)} M${d.minggu}`,
+    `<div class="form-field"><label>Komen JPN <span class="req">*</span></label>
+     <textarea id="mbInput" placeholder="Tulis maklum balas atau arahan untuk PPD..."></textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" onclick="saveFeedback('${dialogId}')">Hantar Maklum Balas</button>`);
+}
+function saveFeedback(dialogId){
+  const v=$("#mbInput").value.trim();
+  if(!v){toast("Sila tulis komen dahulu");return;}
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("addFeedback",{dialogId,isuId:null,komen:v,oleh:SESSION.nama});
+      await refreshData();closeModal();renderMBList();toast("Maklum balas dihantar");
+    }catch(err){toast(err.message||"Gagal menghantar");}})();
+    return;
+  }
+  DB.maklumBalas.push({id:"FB"+Date.now(),dialogId,isuId:null,komen:v,oleh:SESSION.nama,tarikh:"2026-08-09"});
+  closeModal();renderMBList();toast("Maklum balas dihantar");
+}
+
+/* ============================================================
+   JPN: PENYELARASAN — Perkara Luar Kawalan KPPD
+   Untuk penyelarasan peringkat JPN & penghantaran ke Pengarah.
+   ============================================================ */
+function renderPenyelarasan(){
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran · Pengarah Pendidikan JPN</div>
+    <h2>Penyelarasan JPN</h2>
+    <p>Perkara di luar kawalan KPPD & status penghantaran laporan kepada Pengarah Pendidikan</p></div>`;
+
+  // ---- Bahagian A: perkara luar kawalan KPPD ----
+  const luar=isuAktif().filter(i=>i.kawalanKPPD==="Tidak");
+  const belumMaklum=luar.filter(i=>i.statusMakluman!=="Telah Dimaklumkan").length;
+  h+=`<div class="stat-grid">
+    <div class="stat-card warn"><div class="lbl">Perkara Luar Kawalan KPPD</div>
+      <div class="val">${luar.length}</div><div class="sub">perlu penyelarasan JPN</div></div>
+    <div class="stat-card danger"><div class="lbl">Tindakan Belum Dimaklumkan</div>
+      <div class="val">${belumMaklum}</div><div class="sub">kepada sektor/pegawai</div></div>
+    <div class="stat-card ok"><div class="lbl">Laporan Dihantar ke Pengarah</div>
+      <div class="val">${dialogAktif(DB.dialog).filter(d=>d.dihantarKePengarah).length}<span style="font-size:20px;color:var(--muted)">/${dialogAktif(DB.dialog).length}</span></div>
+      <div class="sub">sesi dialog</div></div>
+  </div>`;
+
+  h+=`<div class="card"><div class="card-head"><div><h3>Perkara di Luar Kawalan KPPD</h3>
+    <div class="sub">Untuk penyelarasan Pengarah Pendidikan JPN · sahkan makluman kepada sektor berkaitan</div></div></div>
+    <div class="card-body flush"><div class="scroll-x"><table><thead><tr>
+    <th>PPD</th><th>M</th><th>Isu</th><th>Tindakan</th><th>Sektor / Pegawai</th>
+    <th class="t-center">Makluman</th></tr></thead><tbody>`;
+  if(!luar.length){
+    h+=`<tr><td colspan="6"><div class="empty"><div class="ico">✓</div>Tiada perkara luar kawalan KPPD buat masa ini.</div></td></tr>`;
+  }else{
+    luar.forEach(i=>{
+      const d=DB.dialog.find(x=>x.id===i.dialogId);
+      const dimaklum=i.statusMakluman==="Telah Dimaklumkan";
+      h+=`<tr><td><b>${ppdName(i.ppdId)}</b></td><td><span class="pill">M${d?d.minggu:"?"}</span></td>
+        <td style="max-width:230px;font-size:13px">${i.penerangan}</td>
+        <td style="max-width:220px;font-size:13px">${i.tindakan||"—"}</td>
+        <td style="font-size:12.5px">${i.sektorPegawai||"—"}</td>
+        <td class="t-center">${dimaklum
+          ? '<span class="badge b-ok">Telah Dimaklumkan</span>'
+          : '<span class="badge b-danger">Belum Dimaklumkan</span>'}</td></tr>`;
+    });
+  }
+  h+=`</tbody></table></div></div></div>`;
+
+  // ---- Bahagian B: penghantaran laporan ke Pengarah ----
+  h+=`<div class="card"><div class="card-head"><div><h3>Penghantaran Laporan kepada Pengarah</h3>
+    <div class="sub">Tandakan sesi yang laporannya telah dihantar untuk penyelarasan JPN</div></div>
+    </div>
+    <div class="card-body flush"><div class="scroll-x"><table><thead><tr>
+    <th>PPD</th><th>Minggu</th><th class="t-center">Luar Kawalan KPPD</th>
+    <th class="t-center">Status ke Pengarah</th><th class="t-center">Tindakan</th></tr></thead><tbody>`;
+  dialogAktif(DB.dialog).sort((a,b)=>b.minggu-a.minggu).forEach(d=>{
+    const nLuar=DB.isu.filter(i=>i.dialogId===d.id&&i.kawalanKPPD==="Tidak").length;
+    h+=`<tr><td><b>${ppdName(d.ppdId)}</b></td><td><span class="pill">M${d.minggu}</span></td>
+      <td class="t-center">${nLuar?`<span class="badge b-pending">${nLuar} perkara</span>`:'<span class="badge b-neutral">—</span>'}</td>
+      <td class="t-center">${d.dihantarKePengarah?'<span class="badge b-ok">Dihantar</span>':'<span class="badge b-danger">Belum</span>'}</td>
+      <td class="t-center">${d.dihantarKePengarah
+        ? '<span style="color:var(--muted);font-size:12px">—</span>'
+        : '<span style="color:var(--muted);font-size:12px">—</span>'}</td></tr>`;
+  });
+  h+=`</tbody></table></div></div></div>`;
+  $("#main").innerHTML=h;
+}
+function tandaMakluman(isuId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("markMakluman",{isuId});await refreshData();
+      renderPenyelarasan();toast("Tindakan ditanda telah dimaklumkan kepada sektor");
+    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    return;
+  }
+  const i=DB.isu.find(x=>x.id===isuId);
+  i.statusMakluman="Telah Dimaklumkan"; i.tarikhMakluman="2026-08-09";
+  renderPenyelarasan();toast("Tindakan ditanda telah dimaklumkan kepada sektor");
+}
+function tandaPengarah(dialogId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("markDihantarPengarah",{dialogId});await refreshData();
+      buildSidebar();renderPenyelarasan();toast("Laporan ditanda dihantar kepada Pengarah");
+    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    return;
+  }
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  d.dihantarKePengarah=true; d.tarikhHantarPengarah="2026-08-09";
+  buildSidebar();renderPenyelarasan();toast("Laporan ditanda dihantar kepada Pengarah");
+}
+function tandaSemuaPengarah(){
+  const senarai=DB.dialog.filter(d=>d.minggu===LATEST_WEEK&&!d.dihantarKePengarah&&!isDibatalkan(d));
+  if(!senarai.length){toast("Tiada laporan menunggu penghantaran");return;}
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{
+      for(const d of senarai){await apiPost("markDihantarPengarah",{dialogId:d.id});}
+      await refreshData();buildSidebar();renderPenyelarasan();toast(`Semua laporan Minggu ${LATEST_WEEK} ditanda dihantar`);
+    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    return;
+  }
+  senarai.forEach(d=>{d.dihantarKePengarah=true;d.tarikhHantarPengarah="2026-08-09";});
+  buildSidebar();renderPenyelarasan();toast(`Semua laporan Minggu ${LATEST_WEEK} ditanda dihantar`);
+}
+
+/* ============================================================
+   JPN: MUAT TURUN LAPORAN (PDF gabungan ikut minggu & PPD)
+   ============================================================ */
+function renderMuatTurun(){
+  // senarai minggu yang ada laporan (menurun), sertakan minggu semasa
+  const set=new Set(dialogAktif(DB.dialog).map(d=>Number(d.minggu)));
+  set.add(Number(LATEST_WEEK));
+  const minggu=[...set].filter(n=>n).sort((a,b)=>b-a);
+
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Muat Turun Laporan</h2>
+    <p>Jana satu fail PDF mengandungi laporan semua PPD — sesuai untuk mesyuarat & simpanan rekod</p></div>`;
+
+  h+=`<div class="card"><div class="card-head"><h3>Pilihan Muat Turun</h3></div><div class="card-body">
+    <div class="form-row">
+      <div class="form-field"><label>Minggu <span class="req">*</span></label>
+        <select id="mtMinggu" onchange="kemaskiniPratonton()">
+          ${minggu.map(n=>`<option value="${n}"${Number(n)===Number(LATEST_WEEK)?" selected":""}>Minggu ${n}</option>`).join("")}
+        </select></div>
+      <div class="form-field"><label>PPD</label>
+        <select id="mtPpd" onchange="kemaskiniPratonton()">
+          <option value="">Semua PPD</option>
+          ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}
+        </select></div>
+    </div>
+    <div id="mtPratonton"></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-navy" id="btnJana" onclick="klikJana()" style="padding:12px 24px">⬇ Jana PDF Gabungan</button>
+    </div>
+    <div class="help" style="margin-top:10px">PDF gabungan bermula dengan muka depan ringkasan (senarai kandungan &
+      status pematuhan), diikuti laporan penuh setiap PPD dalam format rasmi LAMPIRAN A.</div>
+  </div></div>`;
+  $("#main").innerHTML=h;
+  kemaskiniPratonton();
+}
+function kemaskiniPratonton(){
+  const wk=$("#mtMinggu")?$("#mtMinggu").value:LATEST_WEEK;
+  const pid=$("#mtPpd")?$("#mtPpd").value:"";
+  const senarai=laporanTerpilih(wk,pid);
+  const hantar=new Set(senarai.map(d=>normId(d.ppdId)));
+  const belum=pid?[]:DB.ppd.filter(p=>!hantar.has(normId(p.id)));
+  let h="";
+  if(!senarai.length){
+    h=`<div class="empty" style="padding:30px 20px"><div class="ico">☰</div>Tiada laporan untuk pilihan ini.</div>`;
+  }else{
+    h=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:1;min-width:170px;background:var(--ok-bg);border-radius:10px;padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.05em">Akan disertakan</div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;color:var(--navy);font-weight:600">${senarai.length} laporan</div></div>
+      ${belum.length?`<div style="flex:1;min-width:170px;background:var(--danger-bg);border-radius:10px;padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:.05em">Belum hantar</div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;color:var(--navy);font-weight:600">${belum.length} PPD</div></div>`:""}
+    </div>`;
+    h+=`<div class="scroll-x"><table><thead><tr><th>Bil.</th><th>PPD</th><th>Tarikh Sesi</th>
+      <th class="t-center">Bil. Isu</th><th class="t-center">Luar Kawalan KPPD</th></tr></thead><tbody>`;
+    senarai.forEach((d,i)=>{
+      const nIsu=DB.isu.filter(x=>x.dialogId===d.id).length;
+      const luar=DB.isu.filter(x=>x.dialogId===d.id&&(x.kawalanKPPD||"Ya")==="Tidak").length;
+      h+=`<tr><td>${i+1}</td><td><b>${ppdName(d.ppdId)}</b></td><td>${fmtDate(d.tarikh)}</td>
+        <td class="t-center">${nIsu}</td>
+        <td class="t-center">${luar?`<span class="badge b-pending">${luar}</span>`:'<span class="badge b-neutral">—</span>'}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    if(belum.length){
+      h+=`<div style="margin-top:12px;font-size:12.5px;color:var(--danger)">
+        <b>Belum hantar:</b> ${belum.map(p=>p.nama).join(", ")}</div>`;
+    }
+  }
+  $("#mtPratonton").innerHTML=h;
+}
+function klikJana(){
+  const wk=$("#mtMinggu").value, pid=$("#mtPpd").value;
+  janaPDFGabungan(wk,pid);
+}
+
+/* ============================================================
+   JPN: PANEL ADMIN (kategori, PPD, config)
+   ============================================================ */
+function renderAdmin(){
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Panel Admin</h2>
+    <p>Urus kategori isu, senarai PPD dan tetapan sistem</p></div>`;
+
+  // Kategori
+  h+=`<div class="card"><div class="card-head"><div><h3>Kategori Isu</h3>
+    <div class="sub">Tambah, edit atau nyahaktif kategori perbincangan</div></div>
+    <button class="btn btn-brass btn-sm" onclick="openKatModal()">+ Tambah Kategori</button></div>
+    <div class="card-body flush"><table><thead><tr><th>ID</th><th>Nama Kategori</th><th class="t-center">Status</th><th class="t-center">Tindakan</th></tr></thead><tbody>`;
+  DB.kategori.forEach(k=>{
+    h+=`<tr><td><span class="pill">${k.id}</span></td><td><b>${k.nama}</b></td>
+      <td class="t-center">${k.aktif?'<span class="badge b-ok">Aktif</span>':'<span class="badge b-neutral">Nyahaktif</span>'}</td>
+      <td class="t-center"><button class="btn btn-ghost btn-sm" onclick="toggleKat('${k.id}')">${k.aktif?"Nyahaktif":"Aktifkan"}</button></td></tr>`;
+  });
+  h+=`</tbody></table></div></div>`;
+
+  // PPD
+  h+=`<div class="card"><div class="card-head"><div><h3>Senarai PPD</h3>
+    <div class="sub">10 PPD di negeri Kedah</div></div></div>
+    <div class="card-body flush"><table><thead><tr><th>ID</th><th>Nama PPD</th></tr></thead><tbody>`;
+  DB.ppd.forEach(p=>h+=`<tr><td><span class="pill">${p.id}</span></td><td><b>${p.nama}</b></td></tr>`);
+  h+=`</tbody></table></div></div>`;
+
+  // Config
+  h+=`<div class="card"><div class="card-head"><h3>Tetapan Sistem</h3></div><div class="card-body">
+    <div class="form-row">
+      <div class="form-field"><label>Hari Tarikh Akhir Hantar</label>
+        <select id="cfgHari"><option ${DB.config.HARI_TARIKH_AKHIR==='Rabu'?'selected':''}>Rabu</option>
+        <option ${DB.config.HARI_TARIKH_AKHIR==='Khamis'?'selected':''}>Khamis</option>
+        <option ${DB.config.HARI_TARIKH_AKHIR==='Jumaat'?'selected':''}>Jumaat</option></select></div>
+      <div class="form-field"><label>SLA Tindak Susul (hari)</label>
+        <input id="cfgSla" type="number" value="${DB.config.TINDAK_SUSUL_SLA_HARI}"></div>
+    </div>
+    <div class="checkbox-row"><input type="checkbox" id="cfgEmel" ${DB.config.REMINDER_EMEL_AKTIF?'checked':''}>
+      <label>Hantar peringatan emel automatik kepada PPD yang belum submit</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="cfgBanner" ${DB.config.REMINDER_BANNER_AKTIF?'checked':''}>
+      <label>Papar notis dalam sistem bila PPD log masuk (belum submit)</label></div>
+    <div class="btn-row"><button class="btn btn-navy" onclick="saveConfig()">Simpan Tetapan</button></div>
+  </div></div>`;
+  $("#main").innerHTML=h;
+}
+function openKatModal(){
+  showModal("Tambah Kategori Isu",
+    `<div class="form-field"><label>Nama Kategori <span class="req">*</span></label>
+     <input id="katInput" type="text" placeholder="cth: Keselamatan & Kesihatan Sekolah"></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" onclick="saveKat()">Simpan</button>`);
+}
+function saveKat(){
+  const v=$("#katInput").value.trim();if(!v){toast("Sila isi nama kategori");return;}
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("addKategori",{nama:v});await refreshData();
+      closeModal();renderAdmin();toast("Kategori ditambah");
+    }catch(err){toast(err.message||"Gagal menambah");}})();
+    return;
+  }
+  const nid="K"+String(DB.kategori.length+1).padStart(2,"0");
+  DB.kategori.push({id:nid,nama:v,aktif:true});
+  closeModal();renderAdmin();toast("Kategori ditambah");
+}
+function toggleKat(id){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("toggleKategori",{kategoriId:id});await refreshData();
+      renderAdmin();toast("Status kategori dikemaskini");
+    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    return;
+  }
+  const k=DB.kategori.find(x=>x.id===id);k.aktif=!k.aktif;renderAdmin();toast("Status kategori dikemaskini");
+}
+function saveConfig(){
+  const cfg={HARI_TARIKH_AKHIR:$("#cfgHari").value,TINDAK_SUSUL_SLA_HARI:+$("#cfgSla").value,
+    REMINDER_EMEL_AKTIF:$("#cfgEmel").checked?"Ya":"Tidak",REMINDER_BANNER_AKTIF:$("#cfgBanner").checked?"Ya":"Tidak"};
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("saveConfig",cfg);await refreshData();toast("Tetapan disimpan");
+    }catch(err){toast(err.message||"Gagal menyimpan");}})();
+    return;
+  }
+  DB.config.HARI_TARIKH_AKHIR=cfg.HARI_TARIKH_AKHIR;
+  DB.config.TINDAK_SUSUL_SLA_HARI=cfg.TINDAK_SUSUL_SLA_HARI;
+  DB.config.REMINDER_EMEL_AKTIF=$("#cfgEmel").checked;
+  DB.config.REMINDER_BANNER_AKTIF=$("#cfgBanner").checked;
+  toast("Tetapan disimpan");
+}
+
+/* ============================================================
+   PPD: BORANG HANTAR DIALOG
+   ============================================================ */
+let issueCount=0;
+let EDIT_ID=null; // jika tidak null, borang dalam mod kemaskini
+const isDibatalkan=(d)=>String(d.status||"").toLowerCase()==="dibatalkan";
+const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d));
+/* PPD unik yang menghantar laporan aktif bagi sesuatu minggu (elak kiraan berganda) */
+function ppdHantarMinggu(wk){
+  const sah=new Set(DB.ppd.map(x=>normId(x.id)));
+  const set=new Set();
+  DB.dialog.forEach(d=>{
+    if(Number(d.minggu)!==Number(wk)) return;
+    if(isDibatalkan(d)) return;
+    const id=normId(d.ppdId);
+    if(sah.has(id)) set.add(id);
+  });
+  return set;
+}
+/* laporan aktif terkini bagi satu PPD/minggu (jika ada pendua, ambil yang terbaru) */
+function dialogTerkini(ppdId,wk){
+  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&!isDibatalkan(d));
+  if(!senarai.length) return null;
+  return senarai.sort((a,b)=>String(b.tarikhSubmit||'').localeCompare(String(a.tarikhSubmit||'')))[0];
+}
+/* bilangan laporan pendua (PPD hantar >1 kali dalam minggu sama) */
+function penduaMinggu(wk){
+  const kira={};
+  DB.dialog.forEach(d=>{
+    if(Number(d.minggu)!==Number(wk)||isDibatalkan(d)) return;
+    const id=normId(d.ppdId); kira[id]=(kira[id]||0)+1;
+  });
+  return Object.keys(kira).filter(k=>kira[k]>1).map(k=>ppdName(k));
+}
+const isuAktif=()=>{const batal=new Set(DB.dialog.filter(isDibatalkan).map(d=>d.id));return DB.isu.filter(i=>!batal.has(i.dialogId));};
+
+function renderBorang(){
+  const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
+  if(EDIT_ID && !editing){EDIT_ID=null;} // rekod hilang — kembali ke mod baharu
+  // laporan aktif minggu ini (rekod dibatalkan tidak dikira → boleh hantar semula)
+  const alreadySubmitted = editing ? null :
+    DB.dialog.find(d=>d.ppdId===SESSION.ppdId&&d.minggu===LATEST_WEEK&&!isDibatalkan(d));
+
+  let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div>
+    <h2>${editing?"Kemaskini Laporan Dialog Prestasi":"Hantar Laporan Dialog Prestasi"}</h2>
+    <p>Minggu ${editing?editing.minggu:LATEST_WEEK} · ${fmtDate(editing?editing.tarikh:latestWeekTarikh())}</p></div>`;
+
+  if(alreadySubmitted){
+    h+=`<div class="banner"><span class="b-ico">✓</span><div class="banner-text">
+      <b>Sudah dihantar.</b> Laporan Dialog Prestasi Minggu ${LATEST_WEEK} telah direkodkan pada ${fmtDate(alreadySubmitted.tarikhSubmit)}.
+      Anda boleh semak, kemaskini atau padam di "Rekod Dialog Saya".</div>
+      <button class="btn btn-brass btn-sm" onclick="mulaKemaskini('${alreadySubmitted.id}')">✎ Kemaskini</button></div>`;
+    $("#main").innerHTML=h;return;
+  }
+
+  if(editing){
+    h+=`<div class="banner"><span class="b-ico">✎</span><div class="banner-text">
+      <b>Mod Kemaskini.</b> Anda sedang mengemaskini laporan Minggu ${editing.minggu}. Perubahan akan menggantikan rekod sedia ada.</div>
+      <button class="btn btn-ghost btn-sm" onclick="batalKemaskini()">Batal</button></div>`;
+  }else{
+    h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
+      <b>Peringatan:</b> Laporan minggu ini belum dihantar. Tarikh akhir: <b>${DB.config.HARI_TARIKH_AKHIR} minggu ini</b>.</div></div>`;
+  }
+
+  const tarikhDefault = editing ? editing.tarikh : latestWeekTarikh();
+  const val=(v)=>v?String(v).replace(/"/g,"&quot;"):"";
+  h+=`<div class="card"><div class="card-head"><h3>Butiran Sesi</h3>
+    <div class="sub">Mengikut format rasmi LAMPIRAN A (DP PPD)</div></div><div class="card-body">
+    <div class="form-row">
+      <div class="form-field"><label>Pengerusi <span class="req">*</span></label>
+        <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah" value="${editing?val(editing.pengerusi):""}"></div>
+      <div class="form-field"><label>Tarikh <span class="req">*</span></label>
+        <input id="dTarikh" type="date" value="${tarikhDefault}" onchange="updateHari()"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-field"><label>Hari</label>
+        <input id="dHari" type="text" value="${hariMelayu(tarikhDefault)}" readonly style="background:#f2f4f6"></div>
+      <div class="form-field"><label>Masa</label>
+        <input id="dMasa" type="text" placeholder="cth: 9:00 pagi" value="${editing?val(editing.masa):""}"></div>
+    </div>
+    <div class="form-field"><label>Tempat</label>
+      <input id="dTempat" type="text" placeholder="cth: Bilik Mesyuarat Utama PPD" value="${editing?val(editing.tempat):""}"></div>
+    <div class="form-field"><label>Kehadiran</label>
+      <textarea id="dHadir" placeholder="Senaraikan kehadiran — satu nama/jawatan setiap baris" style="min-height:90px">${editing&&Array.isArray(editing.kehadiran)?editing.kehadiran.join("\n"):""}</textarea>
+      <div class="help">Satu baris = satu kehadiran (akan disenaraikan a, b, c, d… dalam laporan PDF).</div></div>
+    <div class="form-field"><label>Ringkasan Sesi (pilihan)</label>
+      <textarea id="dRingkas" placeholder="Ringkasan umum perbincangan dialog...">${editing?(editing.ringkasan||""):""}</textarea></div>
+  </div></div>`;
+
+  h+=`<div class="card"><div class="card-head"><div><h3>Isu dan Tindakan</h3>
+    <div class="sub">Tambah setiap isu yang dibincangkan (boleh lebih dari satu)</div></div></div>
+    <div class="card-body"><div id="issueList"></div>
+    <button class="btn btn-ghost" onclick="addIssue()">+ Tambah Isu</button></div></div>`;
+
+  h+=`<div class="card"><div class="card-head"><div><h3>Lampiran Gambar</h3>
+    <div class="sub">Pilihan — muat naik sehingga 2 keping gambar (bukti/sesi dialog). Akan disertakan dalam PDF laporan.</div></div></div>
+    <div class="card-body">
+      <div class="gambar-grid">
+        <div class="gambar-slot" id="gslot1">
+          <input type="file" id="gInput1" accept="image/*" class="gambar-input" onchange="pilihGambar(1,this)">
+          <label for="gInput1" class="gambar-drop" id="gdrop1">
+            <span class="gambar-ico">＋</span><span>Gambar 1</span><span class="gambar-hint">JPG/PNG</span></label>
+          <div class="gambar-preview hidden" id="gprev1"></div>
+        </div>
+        <div class="gambar-slot" id="gslot2">
+          <input type="file" id="gInput2" accept="image/*" class="gambar-input" onchange="pilihGambar(2,this)">
+          <label for="gInput2" class="gambar-drop" id="gdrop2">
+            <span class="gambar-ico">＋</span><span>Gambar 2</span><span class="gambar-hint">JPG/PNG</span></label>
+          <div class="gambar-preview hidden" id="gprev2"></div>
+        </div>
+      </div>
+    </div></div>`;
+
+  h+=`<div class="card"><div class="card-head"><h3>Pengesahan</h3></div><div class="card-body">
+    <div class="form-row">
+      <div class="form-field"><label>Dicatat oleh <span class="req">*</span></label>
+        <input id="dDicatat" type="text" placeholder="Nama pencatat laporan" value="${editing?val(editing.dicatatOleh):""}"></div>
+      <div class="form-field"><label>Disahkan oleh <span class="req">*</span></label>
+        <input id="dDisah" type="text" placeholder="Nama pengesah (cth: PPD)" value="${editing?val(editing.disahkanOleh):""}"></div>
+    </div>
+  </div></div>`;
+
+  h+=`<div class="btn-row" style="margin-top:4px">
+    <button class="btn btn-navy" onclick="submitDialog()" style="padding:13px 26px">${editing?"Simpan Perubahan":"Hantar Laporan"}</button>
+    ${editing?`<button class="btn btn-ghost" onclick="batalKemaskini()">Batal</button>`
+             :`<button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button>`}</div>`;
+
+  $("#main").innerHTML=h;
+  borangGambar={1:null,2:null};
+  issueCount=0;
+
+  if(editing){
+    // muat semula isu sedia ada
+    const isuList=DB.isu.filter(i=>i.dialogId===editing.id);
+    if(isuList.length){
+      isuList.forEach(i=>addIssue(i));
+    }else{addIssue();addIssue();}
+    // muat semula gambar sedia ada (papar pratonton)
+    [1,2].forEach(slot=>{
+      const raw = slot===1?editing.gambar1:editing.gambar2;
+      const src = gambarSrc(raw);
+      if(src){
+        borangGambar[slot] = String(raw).startsWith("data:") ? raw : ("KEEP:"+raw); // KEEP = kekalkan fail Drive asal
+        const prev=$("#gprev"+slot), drop=$("#gdrop"+slot);
+        prev.innerHTML=`<img src="${src}" alt="Gambar ${slot}">
+          <button type="button" class="gambar-remove" onclick="buangGambar(${slot})">✕ Buang</button>`;
+        prev.classList.remove("hidden"); drop.classList.add("hidden");
+      }
+    });
+  }else{
+    addIssue();addIssue();
+  }
+}
+/* ---- Mula / batal mod kemaskini ---- */
+function mulaKemaskini(dialogId){EDIT_ID=dialogId;navigate("borang");}
+function batalKemaskini(){EDIT_ID=null;navigate("rekod");}
+
+/* ---- Padam laporan (tanda 'Dibatalkan' — rekod kekal untuk audit) ---- */
+function mintaPadamLaporan(dialogId){
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(!d)return;
+  const nIsu=DB.isu.filter(i=>i.dialogId===dialogId).length;
+  showModal("Padam Laporan?",
+    `<p style="font-size:14px;margin-bottom:12px">Laporan <b>Minggu ${d.minggu} · ${fmtDate(d.tarikh)}</b> (${nIsu} isu) akan ditanda <b>Dibatalkan</b>.</p>
+     <div style="background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#7a5c08">
+       Rekod <b>tidak dibuang sepenuhnya</b> — ia dikekalkan untuk tujuan audit, tetapi tidak lagi dikira dalam
+       pemantauan JPN, dan tindak susul berkaitan akan ditutup. Anda boleh hantar laporan baharu untuk minggu ini selepas ini.
+     </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" style="background:var(--danger)" onclick="padamLaporan('${dialogId}')">Ya, Batalkan Laporan</button>`);
+}
+function padamLaporan(dialogId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{
+      await apiPost("cancelDialog",{dialogId,oleh:SESSION.nama}); await refreshData();
+      closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
+    }catch(err){toast(err.message||"Gagal membatalkan laporan");}})();
+    return;
+  }
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(d){
+    d.status="Dibatalkan"; d.tarikhBatal=todayISO(); d.dibatalkanOleh=SESSION.nama;
+    // tutup tindak susul berkaitan
+    const isuIds=DB.isu.filter(i=>i.dialogId===dialogId).map(i=>i.id);
+    DB.tindakSusul=DB.tindakSusul.filter(t=>!isuIds.includes(t.isuId));
+  }
+  closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
+}
+/* ---- Muat naik & pratonton gambar (dikecilkan di pelayar) ---- */
+let borangGambar={1:null,2:null};
+function pilihGambar(slot,input){
+  const file=input.files&&input.files[0];
+  if(!file)return;
+  if(!file.type.startsWith("image/")){toast("Sila pilih fail imej");input.value="";return;}
+  resizeImage(file,1400,0.82,(dataUrl)=>{
+    borangGambar[slot]=dataUrl;
+    const prev=$("#gprev"+slot), drop=$("#gdrop"+slot);
+    prev.innerHTML=`<img src="${dataUrl}" alt="Gambar ${slot}">
+      <button type="button" class="gambar-remove" onclick="buangGambar(${slot})">✕ Buang</button>`;
+    prev.classList.remove("hidden"); drop.classList.add("hidden");
+  });
+}
+function buangGambar(slot){
+  borangGambar[slot]=null;
+  $("#gInput"+slot).value="";
+  $("#gprev"+slot).classList.add("hidden");
+  $("#gprev"+slot).innerHTML="";
+  $("#gdrop"+slot).classList.remove("hidden");
+}
+function resizeImage(file,maxDim,quality,cb){
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      if(w>maxDim||h>maxDim){ if(w>=h){h=Math.round(h*maxDim/w);w=maxDim;} else {w=Math.round(w*maxDim/h);h=maxDim;} }
+      const c=document.createElement("canvas");c.width=w;c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      cb(c.toDataURL("image/jpeg",quality));
+    };
+    img.onerror=()=>toast("Gagal membaca imej");
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function addIssue(data){
+  issueCount++;
+  const cats=DB.kategori.filter(k=>k.aktif);
+  const esc=(v)=>v?String(v).replace(/"/g,"&quot;"):"";
+  const d=data||null;
+  const div=document.createElement("div");
+  div.className="issue-block";div.id=`issue-${issueCount}`;
+  div.innerHTML=`<span class="issue-num">Isu ${issueCount}</span>
+    <button class="remove-issue" onclick="removeIssue(${issueCount})">✕ Buang</button>
+    <div class="form-field" style="margin-top:6px"><label>Kategori <span class="req">*</span></label>
+      <select class="issueKat"><option value="">— Pilih kategori —</option>
+        ${cats.map(k=>`<option value="${k.id}"${d&&d.kategoriId===k.id?" selected":""}>${k.nama}</option>`).join("")}</select>
+      <div class="help">Kategori digunakan untuk analitik JPN (tidak dipapar dalam borang rasmi).</div></div>
+    <div class="form-field"><label>Isu <span class="req">*</span></label>
+      <textarea class="issueDesc" placeholder="Terangkan isu yang dibincangkan...">${d?(d.penerangan||""):""}</textarea></div>
+    <div class="form-field"><label>Tindakan <span class="req">*</span></label>
+      <textarea class="issueTindakan" placeholder="Tindakan yang dipersetujui / diambil...">${d?(d.tindakan||""):""}</textarea></div>
+    <div class="form-field"><label>Sektor / Pegawai</label>
+      <input class="issueSektor" type="text" placeholder="Pihak bertanggungjawab (cth: Sektor Pengurusan Akademik)" value="${d?esc(d.sektorPegawai):""}"></div>
+    <div class="checkbox-row"><input type="checkbox" class="issueKPPD"${!d||String(d.kawalanKPPD||"Ya")==="Ya"?" checked":""}>
+      <label>Perkara ini <b>di bawah kawalan KPPD</b> (buang tanda jika perlu penyelarasan JPN)</label></div>
+    <div class="checkbox-row"><input type="checkbox" class="issuePerlu"${!d||d.perluTindakSusul?" checked":""}>
+      <label>Isu ini memerlukan tindak susul (dijejak dalam sistem)</label></div>`;
+  $("#issueList").appendChild(div);
+}
+function removeIssue(n){const el=$(`#issue-${n}`);if($("#issueList").children.length<=1){toast("Sekurang-kurangnya satu isu diperlukan");return;}el.remove();}
+function submitDialog(){
+  const pengerusi=$("#dPengerusi").value.trim();
+  const dicatat=$("#dDicatat").value.trim();
+  const disah=$("#dDisah").value.trim();
+  const blocks=document.querySelectorAll(".issue-block");
+  const issues=[];let valid=true;
+  blocks.forEach(b=>{
+    const kat=b.querySelector(".issueKat").value;
+    const desc=b.querySelector(".issueDesc").value.trim();
+    const tindakan=b.querySelector(".issueTindakan").value.trim();
+    const sektor=b.querySelector(".issueSektor").value.trim();
+    const kawalanKPPD=b.querySelector(".issueKPPD").checked?"Ya":"Tidak";
+    const perlu=b.querySelector(".issuePerlu").checked;
+    if(!kat||!desc||!tindakan){valid=false;return;}
+    issues.push({kat,desc,tindakan,sektor,kawalanKPPD,perlu});
+  });
+  if(!pengerusi||!dicatat||!disah){toast("Sila lengkapkan Pengerusi, Dicatat oleh & Disahkan oleh");return;}
+  if(!valid||!issues.length){toast("Sila lengkapkan Kategori, Isu & Tindakan bagi setiap isu");return;}
+  const kehadiran=$("#dHadir").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
+
+  if(!CONFIG.DEMO_MODE){
+    // ---- MOD LIVE: hantar ke GAS ----
+    const payload={ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,hari:$("#dHari").value,
+      masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,
+      minggu:editing?editing.minggu:LATEST_WEEK,tahun:DB.config.TAHUN_SEMASA,
+      kehadiran,ringkasan:$("#dRingkas").value,disubmitOleh:SESSION.nama,dicatatOleh:dicatat,disahkanOleh:disah,
+      gambar1:borangGambar[1]||"",gambar2:borangGambar[2]||"",
+      issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
+        sektorPegawai:is.sektor,kawalanKPPD:is.kawalanKPPD,perluTindakSusul:is.perlu}))};
+    if(editing) payload.dialogId=editing.id;
+    (async()=>{try{
+      await apiPost(editing?"updateDialog":"submitDialog",payload); await refreshData();
+      EDIT_ID=null;
+      toast(editing?"Laporan berjaya dikemaskini ✓":"Laporan Dialog Prestasi berjaya dihantar ✓");
+      buildSidebar(); navigate("rekod");
+    }catch(err){toast(err.message||"Gagal menyimpan laporan");}})();
+    return;
+  }
+
+  // ---- MOD DEMO ----
+  const keepOrData=(v)=>!v?null:(String(v).startsWith("KEEP:")?String(v).slice(5):v);
+  if(editing){
+    // kemaskini rekod sedia ada
+    Object.assign(editing,{tarikh:$("#dTarikh").value,pengerusi,hari:$("#dHari").value,
+      masa:$("#dMasa").value,tempat:$("#dTempat").value,kehadiran,ringkasan:$("#dRingkas").value,
+      dicatatOleh:dicatat,disahkanOleh:disah,
+      gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
+    // ganti isu & tindak susul lama
+    const oldIsu=DB.isu.filter(i=>i.dialogId===editing.id).map(i=>i.id);
+    DB.tindakSusul=DB.tindakSusul.filter(t=>!oldIsu.includes(t.isuId));
+    DB.isu=DB.isu.filter(i=>i.dialogId!==editing.id);
+    tulisIsuDemo(editing.id,issues,$("#dTarikh").value);
+    EDIT_ID=null;
+    toast("Laporan berjaya dikemaskini ✓");
+    buildSidebar();navigate("rekod");
+    return;
+  }
+  const dId="D"+Date.now();
+  DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:LATEST_WEEK,tahun:2026,
+    pengerusi,hari:$("#dHari").value,masa:$("#dMasa").value,tempat:$("#dTempat").value,
+    kehadiran,ringkasan:$("#dRingkas").value,status:"Selesai",tarikhSubmit:todayISO(),
+    dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null,
+    gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
+  tulisIsuDemo(dId,issues,$("#dTarikh").value);
+  toast("Laporan Dialog Prestasi berjaya dihantar ✓");
+  buildSidebar();navigate("rekod");
+}
+/* tulis isu + tindak susul (mod demo) */
+function tulisIsuDemo(dId,issues,tarikh){
+  issues.forEach((is,idx)=>{
+    const iId="I"+Date.now()+idx;
+    DB.isu.push({id:iId,dialogId:dId,ppdId:SESSION.ppdId,kategoriId:is.kat,penerangan:is.desc,
+      tindakan:is.tindakan,sektorPegawai:is.sektor,perluTindakSusul:is.perlu,tarikh,
+      kawalanKPPD:is.kawalanKPPD,statusMakluman:"Belum Dimaklumkan",tarikhMakluman:null});
+    if(is.perlu){
+      const target=new Date(tarikh);target.setDate(target.getDate()+DB.config.TINDAK_SUSUL_SLA_HARI);
+      DB.tindakSusul.push({id:"TS"+Date.now()+idx,isuId:iId,dialogId:dId,ppdId:SESSION.ppdId,kategoriId:is.kat,
+        pic:is.sektor||`Pegawai ${ppdName(SESSION.ppdId)}`,tarikhSasaran:target.toISOString().slice(0,10),
+        status:"Belum Mula",tarikhSelesai:null,catatan:""});
+    }
+  });
+}
+
+/* ============================================================
+   PPD: REKOD DIALOG SAYA
+   ============================================================ */
+function renderRekod(){
+  let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div><h2>Rekod Dialog Saya</h2>
+    <p>Sejarah laporan Dialog Prestasi & maklum balas JPN</p></div>`;
+  const mine=DB.dialog.filter(d=>d.ppdId===SESSION.ppdId).sort((a,b)=>b.minggu-a.minggu);
+  if(!mine.length){h+=`<div class="empty"><div class="ico">☰</div>Belum ada rekod dialog.</div>`;$("#main").innerHTML=h;return;}
+  mine.forEach(d=>{
+    const issues=DB.isu.filter(i=>i.dialogId===d.id);
+    const fbs=DB.maklumBalas.filter(f=>f.dialogId===d.id);
+    const batal=isDibatalkan(d);
+    h+=`<div class="card"${batal?' style="opacity:.72"':''}><div class="card-head"><div>
+      <h3 style="font-size:17px">Minggu ${d.minggu} · ${fmtDate(d.tarikh)}</h3>
+      <div class="sub">${issues.length} isu · dihantar ${fmtDate(d.tarikhSubmit)}${batal?" · <b style='color:var(--danger)'>Dibatalkan</b>":""}</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${batal?"":`<button class="btn btn-brass btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="mulaKemaskini('${d.id}')">✎ Kemaskini</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:#f0c9c4" onclick="mintaPadamLaporan('${d.id}')">🗑 Padam</button>`}
+        <span class="badge ${batal?"b-danger":"b-ok"}">${batal?"Dibatalkan":"Selesai"}</span></div></div><div class="card-body">`;
+    if(batal){
+      h+=`<div style="font-size:13px;color:var(--muted)">Laporan ini telah dibatalkan${d.tarikhBatal?` pada ${fmtDate(d.tarikhBatal)}`:""}. Rekod dikekalkan untuk tujuan audit dan tidak dikira dalam pemantauan JPN.</div></div></div>`;
+      return;
+    }
+    if(d.ringkasan)h+=`<p style="font-size:13.5px;color:var(--muted);margin-bottom:14px">${d.ringkasan}</p>`;
+    issues.forEach(i=>{
+      const ts=DB.tindakSusul.find(t=>t.isuId===i.id);
+      h+=`<div class="detail-issue"><div class="di-head">
+        <span class="badge b-cat">${katShort(i.kategoriId)}</span>
+        ${i.perluTindakSusul?'<span class="badge b-progress">Perlu Tindak Susul</span>':''}
+        ${ts?statusBadge(ts.status):''}</div>
+        <div class="di-desc">${i.penerangan}</div>
+        ${i.tindakan?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px"><b>Tindakan:</b> ${i.tindakan}${i.sektorPegawai?` · <b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:''}</div>`:''}</div>`;
+    });
+    const thumbs=gambarThumbsHtml(d);
+    if(thumbs)h+=`<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Lampiran Gambar</div>${thumbs}</div>`;
+    if(fbs.length){
+      h+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+        <div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Maklum Balas JPN</div>`;
+      fbs.forEach(f=>h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`);
+      h+=`</div>`;
+    }
+    h+=`</div></div>`;
+  });
+  $("#main").innerHTML=h;
+}
+
+/* ============================================================
+   PPD: TINDAK SUSUL SAYA
+   ============================================================ */
+function renderTindakSusulPPD(){
+  let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div><h2>Tindak Susul Saya</h2>
+    <p>Kemaskini status tindakan bagi isu daerah anda</p></div>`;
+  const mine=DB.tindakSusul.filter(t=>t.ppdId===SESSION.ppdId);
+  const aktif=mine.filter(t=>t.status!=="Selesai").length;
+  h+=`<div class="stat-grid">
+    <div class="stat-card warn"><div class="lbl">Aktif</div><div class="val">${aktif}</div><div class="sub">belum selesai</div></div>
+    <div class="stat-card ok"><div class="lbl">Selesai</div><div class="val">${mine.length-aktif}</div><div class="sub">daripada ${mine.length} item</div></div>
+  </div>`;
+  h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr>
+    <th>Kategori</th><th>Isu</th><th>Sasaran</th><th class="t-center">Status</th><th class="t-center">Kemaskini</th></tr></thead><tbody>`;
+  if(!mine.length)h+=`<tr><td colspan="5"><div class="empty"><div class="ico">◎</div>Tiada tindak susul.</div></td></tr>`;
+  mine.forEach(t=>{
+    const isu=DB.isu.find(x=>x.id===t.isuId);
+    h+=`<tr><td><span class="badge b-cat">${katShort(t.kategoriId)}</span></td>
+      <td style="max-width:300px;font-size:13px">${isu?isu.penerangan:"—"}</td>
+      <td>${fmtDate(t.tarikhSasaran)} ${slaCheck(t)}</td>
+      <td class="t-center">${statusBadge(t.status)}</td>
+      <td class="t-center"><button class="btn btn-ghost btn-sm" onclick="openTSUpdate('${t.id}')">Kemaskini</button></td></tr>`;
+  });
+  h+=`</tbody></table></div></div></div>`;
+  $("#main").innerHTML=h;
+}
+function openTSUpdate(tsId){
+  const t=DB.tindakSusul.find(x=>x.id===tsId);
+  showModal("Kemaskini Tindak Susul",
+    `<div class="form-field"><label>Status <span class="req">*</span></label>
+       <select id="tsStatus"><option ${t.status==='Belum Mula'?'selected':''}>Belum Mula</option>
+       <option ${t.status==='Dalam Tindakan'?'selected':''}>Dalam Tindakan</option>
+       <option ${t.status==='Selesai'?'selected':''}>Selesai</option></select></div>
+     <div class="form-field"><label>Catatan Kemaskini</label>
+       <textarea id="tsCatatan" placeholder="Nyatakan kemajuan tindakan...">${t.catatan||""}</textarea></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" onclick="saveTS('${tsId}')">Simpan</button>`);
+}
+function saveTS(tsId){
+  const status=$("#tsStatus").value, catatan=$("#tsCatatan").value;
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("updateTindakSusul",{tindakSusulId:tsId,status,catatan});await refreshData();
+      closeModal();buildSidebar();renderTindakSusulPPD();toast("Tindak susul dikemaskini");
+    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    return;
+  }
+  const t=DB.tindakSusul.find(x=>x.id===tsId);
+  t.status=status;t.catatan=catatan;
+  if(t.status==="Selesai"&&!t.tarikhSelesai)t.tarikhSelesai="2026-08-09";
+  closeModal();buildSidebar();renderTindakSusulPPD();toast("Tindak susul dikemaskini");
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function showModal(title,body,foot){
+  const m=document.createElement("div");m.className="modal-back";m.id="modalBack";
+  m.innerHTML=`<div class="modal"><div class="modal-head"><h3>${title}</h3>
+    <button class="banner-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">${body}</div><div class="modal-foot">${foot}</div></div>`;
+  m.onclick=(e)=>{if(e.target===m)closeModal();};
+  document.body.appendChild(m);
+}
+function closeModal(){const m=$("#modalBack");if(m)m.remove();}
+
+/* enter to login */
+/* ============================================================
+   MOD AWAM — auto-mula tanpa login (paparan JPN, baca sahaja)
+   ============================================================ */
+(async function mulaAwam(){
+  const sesi={username:"awam",nama:"Paparan JPN Kedah",peranan:"JPN_ADMIN",ppdId:null};
+  if(CONFIG.DEMO_MODE){ enterApp(sesi); return; }
+  const lv=$("#loginView");
+  if(lv){ lv.innerHTML='<div style="color:#cadcfc;font-family:Plus Jakarta Sans,sans-serif;text-align:center">'+
+    '<div style="font-size:15px;font-weight:600">Memuatkan data…</div></div>'; }
+  try{
+    await loadAllData();
+    enterApp(sesi);
+  }catch(err){
+    if(lv){ lv.innerHTML='<div style="color:#fff;font-family:Plus Jakarta Sans,sans-serif;text-align:center;max-width:420px;padding:24px">'+
+      '<div style="font-size:17px;font-weight:700;margin-bottom:8px">Gagal memuatkan data</div>'+
+      '<div style="font-size:13.5px;color:#b8c6d6">Sila semak sambungan atau tetapan API_URL. '+
+      (err&&err.message?String(err.message):"")+'</div></div>'; }
+  }
+})();
+if(!CONFIG.DEMO_MODE){const dh=$("#demoHint");if(dh)dh.style.display="none";}
+</script>
+</body>
+</html>
