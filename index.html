@@ -128,6 +128,7 @@ tbody tr:last-child td{border-bottom:none}
   border-radius:7px;font-size:12px;font-weight:600}
 .comp-yes{background:var(--ok-bg);color:var(--ok)}
 .comp-no{background:var(--danger-bg);color:var(--danger)}
+.comp-tangguh{background:var(--warn-bg);color:#7a5c08}
 
 /* badges */
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
@@ -260,7 +261,7 @@ tbody tr:last-child td{border-bottom:none}
     <div class="login-body">
       <div class="field">
         <label>Nama Pengguna</label>
-        <input id="loginUser" type="text" placeholder="cth: admin_s4pd atau KODPPD" autocomplete="username">
+        <input id="loginUser" type="text" placeholder="cth: admin_s4pd atau ppd01" autocomplete="username">
       </div>
       <div class="field">
         <label>Kata Laluan</label>
@@ -567,8 +568,37 @@ const fmtDate=(s)=>{
 /* --- tarikh & minggu semasa (untuk sistem kosong / rekod baharu) --- */
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function mingguSemasa(d){ // sepadan dengan GAS mingguDalamTahun()
-  const onejan=new Date(d.getFullYear(),0,1);
-  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+  const info=mingguInfo(d instanceof Date ? isoDari(d) : d);
+  return info?info.minggu:1;
+}
+/* ---- Minggu kerja Ahad–Khamis, dikira dari TARIKH SESI ---- */
+function isoDari(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function mingguInfo(tarikhStr){
+  if(!tarikhStr)return null;
+  const d=new Date(tarikhStr);
+  if(isNaN(d.getTime()))return null;
+  const mula=new Date(d); mula.setHours(0,0,0,0);
+  mula.setDate(d.getDate()-d.getDay());          // Ahad = permulaan minggu
+  const tamat=new Date(mula); tamat.setDate(mula.getDate()+4);   // Khamis
+  const akhir=new Date(mula); akhir.setDate(mula.getDate()+7);   // Ahad minggu berikutnya
+  const tahun=mula.getFullYear();
+  const jan1=new Date(tahun,0,1);
+  const ahadPertama=new Date(jan1); ahadPertama.setDate(jan1.getDate()-jan1.getDay());
+  const minggu=Math.round((mula-ahadPertama)/(7*86400000))+1;
+  return {minggu, tahun, mula:isoDari(mula), tamat:isoDari(tamat), tarikhAkhir:isoDari(akhir),
+          hujungMinggu:(d.getDay()===5||d.getDay()===6)};
+}
+/* Adakah penghantaran lewat? (selepas Ahad minggu berikutnya) */
+function adakahLewat(tarikhSesi, tarikhHantar){
+  const info=mingguInfo(tarikhSesi); if(!info)return false;
+  const akhir=new Date(info.tarikhAkhir); akhir.setHours(23,59,59,999);
+  const hantar=new Date(tarikhHantar||todayISO());
+  return hantar>akhir;
+}
+/* Laporan aktif sedia ada bagi PPD pada minggu tertentu */
+function laporanMingguSedia(ppdId, minggu, tahun, kecualiId){
+  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(minggu)
+    &&Number(d.tahun)===Number(tahun)&&!isDibatalkan(d)&&!isTangguh(d)&&d.id!==kecualiId)||null;
 }
 function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
   const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
@@ -1033,6 +1063,7 @@ function toggleSidebar(){$("#sidebar").classList.toggle("open");}
 function renderDashboard(){
   const sahPpd=new Set(DB.ppd.map(x=>normId(x.id)));
   const submittedThisWeek = ppdHantarMinggu(LATEST_WEEK).size;
+  const tangguhWeek = ppdTangguhMinggu(LATEST_WEEK).size;
   const totalPPD = DB.ppd.length;
   const outstanding = DB.tindakSusul.filter(t=>t.status!=="Selesai").length;
   const overdue = DB.tindakSusul.filter(t=>t.status!=="Selesai"&&new Date("2026-08-09")>new Date(t.tarikhSasaran)).length;
@@ -1064,8 +1095,10 @@ function renderDashboard(){
     <div class="stat-card ${submittedThisWeek===totalPPD?'ok':'warn'}">
       <div class="lbl">Hantar Minggu ${LATEST_WEEK}</div>
       <div class="val">${submittedThisWeek}<span style="font-size:20px;color:var(--muted)">/${totalPPD}</span></div>
-      <div class="sub">${totalPPD-submittedThisWeek} PPD belum hantar</div>
+      <div class="sub">${Math.max(0,totalPPD-submittedThisWeek-tangguhWeek)} belum hantar${tangguhWeek?` · ${tangguhWeek} ditangguh`:""}</div>
     </div>
+    <div class="stat-card ${tangguhWeek?'warn':''}"><div class="lbl">DP-PPD Ditangguh</div>
+      <div class="val">${tangguhWeek}</div><div class="sub">dilaksana minggu berikutnya</div></div>
     <div class="stat-card"><div class="lbl">Jumlah Isu Direkod</div>
       <div class="val">${totalIsu}</div><div class="sub">merentasi ${DB.weeks.length} minggu</div></div>
     <div class="stat-card warn"><div class="lbl">Tindak Susul Aktif</div>
@@ -1081,9 +1114,11 @@ function renderDashboard(){
     <div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th><th class="t-center">Status</th><th class="t-center">Bil. Isu</th><th>Tarikh Submit</th></tr></thead><tbody>`;
   DB.ppd.forEach(p=>{
     const d=dialogTerkini(p.id,LATEST_WEEK);
+    const tg=tangguhBagi(p.id,LATEST_WEEK);
     const nIsu=d?DB.isu.filter(i=>i.dialogId===d.id).length:0;
     h+=`<tr><td><b>${p.nama}</b></td>
-      <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>
+      <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>'
+        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>
       <td class="t-center">${d?nIsu:"—"}</td><td>${d?fmtDate(d.tarikhSubmit):"—"}</td></tr>`;
   });
   h+=`</tbody></table></div></div></div>`;
@@ -1119,8 +1154,10 @@ function renderPematuhan(){
     let cells="";
     DB.weeks.forEach(w=>{
       const d=dialogTerkini(p.id,w.no);
+      const tg=tangguhBagi(p.id,w.no);
       if(d)hantar++;
-      cells+=`<td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>':'<span class="comp-cell comp-no">Belum</span>'}</td>`;
+      cells+=`<td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>'
+        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>`;
     });
     const kadar=Math.round(hantar/DB.weeks.length*100);
     const col=kadar===100?"var(--ok)":kadar>=50?"var(--brass)":"var(--danger)";
@@ -1573,14 +1610,26 @@ function saveConfig(){
 let issueCount=0;
 let EDIT_ID=null; // jika tidak null, borang dalam mod kemaskini
 const isDibatalkan=(d)=>String(d.status||"").toLowerCase()==="dibatalkan";
-const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d));
+const isTangguh=(d)=>String(d.status||"").toLowerCase()==="ditangguh";
+/* laporan sebenar sahaja — tidak termasuk rekod dibatalkan / ditangguh */
+const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d)&&!isTangguh(d));
+/* rekod penangguhan bagi PPD pada minggu tertentu */
+function tangguhBagi(ppdId,wk){
+  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&isTangguh(d))||null;
+}
+function ppdTangguhMinggu(wk){
+  const sah=new Set(DB.ppd.map(x=>normId(x.id)));
+  const set=new Set();
+  DB.dialog.forEach(d=>{ if(Number(d.minggu)===Number(wk)&&isTangguh(d)&&sah.has(normId(d.ppdId))) set.add(normId(d.ppdId)); });
+  return set;
+}
 /* PPD unik yang menghantar laporan aktif bagi sesuatu minggu (elak kiraan berganda) */
 function ppdHantarMinggu(wk){
   const sah=new Set(DB.ppd.map(x=>normId(x.id)));
   const set=new Set();
   DB.dialog.forEach(d=>{
     if(Number(d.minggu)!==Number(wk)) return;
-    if(isDibatalkan(d)) return;
+    if(isDibatalkan(d)||isTangguh(d)) return;
     const id=normId(d.ppdId);
     if(sah.has(id)) set.add(id);
   });
@@ -1588,7 +1637,7 @@ function ppdHantarMinggu(wk){
 }
 /* laporan aktif terkini bagi satu PPD/minggu (jika ada pendua, ambil yang terbaru) */
 function dialogTerkini(ppdId,wk){
-  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&!isDibatalkan(d));
+  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&!isDibatalkan(d)&&!isTangguh(d));
   if(!senarai.length) return null;
   return senarai.sort((a,b)=>String(b.tarikhSubmit||'').localeCompare(String(a.tarikhSubmit||'')))[0];
 }
@@ -1596,7 +1645,7 @@ function dialogTerkini(ppdId,wk){
 function penduaMinggu(wk){
   const kira={};
   DB.dialog.forEach(d=>{
-    if(Number(d.minggu)!==Number(wk)||isDibatalkan(d)) return;
+    if(Number(d.minggu)!==Number(wk)||isDibatalkan(d)||isTangguh(d)) return;
     const id=normId(d.ppdId); kira[id]=(kira[id]||0)+1;
   });
   return Object.keys(kira).filter(k=>kira[k]>1).map(k=>ppdName(k));
@@ -1607,8 +1656,9 @@ function renderBorang(){
   const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
   if(EDIT_ID && !editing){EDIT_ID=null;} // rekod hilang — kembali ke mod baharu
   // laporan aktif minggu ini (rekod dibatalkan tidak dikira → boleh hantar semula)
-  const alreadySubmitted = editing ? null :
-    DB.dialog.find(d=>d.ppdId===SESSION.ppdId&&d.minggu===LATEST_WEEK&&!isDibatalkan(d));
+  const infoKini = mingguInfo(todayISO());
+  const alreadySubmitted = (editing||PAKSA_BARU) ? null : laporanMingguSedia(SESSION.ppdId, infoKini.minggu, infoKini.tahun);
+  const rekodTangguh = editing ? null : tangguhBagi(SESSION.ppdId, infoKini.minggu);
 
   let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div>
     <h2>${editing?"Kemaskini Laporan Dialog Prestasi":"Hantar Laporan Dialog Prestasi"}</h2>
@@ -1616,10 +1666,19 @@ function renderBorang(){
 
   if(alreadySubmitted){
     h+=`<div class="banner"><span class="b-ico">✓</span><div class="banner-text">
-      <b>Sudah dihantar.</b> Laporan Dialog Prestasi Minggu ${LATEST_WEEK} telah direkodkan pada ${fmtDate(alreadySubmitted.tarikhSubmit)}.
-      Anda boleh semak, kemaskini atau padam di "Rekod Dialog Saya".</div>
+      <b>Sudah dihantar.</b> Laporan Minggu ${infoKini.minggu} (sesi ${fmtDate(alreadySubmitted.tarikh)}) direkodkan pada ${fmtDate(alreadySubmitted.tarikhSubmit)}.
+      Satu minggu satu laporan — kemaskini laporan sedia ada jika perlu.</div>
       <button class="btn btn-brass btn-sm" onclick="mulaKemaskini('${alreadySubmitted.id}')">✎ Kemaskini</button></div>`;
+    h+=`<div class="card"><div class="card-body" style="font-size:13.5px;color:var(--muted)">
+      Untuk merekod sesi bagi <b>minggu lain</b> (contoh: sesi minggu lepas yang belum dihantar), buka borang baharu dan pilih tarikh sesi berkenaan.
+      <div class="btn-row" style="margin-top:12px"><button class="btn btn-ghost" onclick="paksaBorangBaharu()">+ Rekod Sesi Minggu Lain</button></div>
+    </div></div>`;
     $("#main").innerHTML=h;return;
+  }
+  if(rekodTangguh){
+    h+=`<div class="banner"><span class="b-ico">↷</span><div class="banner-text">
+      <b>DP-PPD ditangguh.</b> Anda telah menyatakan sesi Minggu ${infoKini.minggu} akan dilaksanakan pada minggu berikutnya. Status ini dipapar kepada JPN.</div>
+      <button class="btn btn-ghost btn-sm" onclick="batalTangguh('${rekodTangguh.id}')">↺ Batal Penangguhan</button></div>`;
   }
 
   if(editing){
@@ -1628,7 +1687,10 @@ function renderBorang(){
       <button class="btn btn-ghost btn-sm" onclick="batalKemaskini()">Batal</button></div>`;
   }else{
     h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
-      <b>Peringatan:</b> Laporan minggu ini belum dihantar. Tarikh akhir: <b>${DB.config.HARI_TARIKH_AKHIR} minggu ini</b>.</div></div>`;
+      <b>Peringatan:</b> Laporan Minggu ${infoKini.minggu} belum dihantar.
+      Sesi dijalankan <b>Ahad–Khamis</b> (${fmtDate(infoKini.mula)} – ${fmtDate(infoKini.tamat)}).
+      Tarikh akhir hantar: <b>${fmtDate(infoKini.tarikhAkhir)}</b> (Ahad minggu berikutnya).</div>
+      ${rekodTangguh?"":`<button class="btn btn-ghost btn-sm" onclick="mintaTangguh()">↷ Tangguh ke Minggu Hadapan</button>`}</div>`;
   }
 
   const tarikhDefault = editing ? editing.tarikh : latestWeekTarikh();
@@ -1638,8 +1700,9 @@ function renderBorang(){
     <div class="form-row">
       <div class="form-field"><label>Pengerusi <span class="req">*</span></label>
         <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah" value="${editing?val(editing.pengerusi):""}"></div>
-      <div class="form-field"><label>Tarikh <span class="req">*</span></label>
-        <input id="dTarikh" type="date" value="${tarikhDefault}" onchange="updateHari()"></div>
+      <div class="form-field"><label>Tarikh Sesi <span class="req">*</span></label>
+        <input id="dTarikh" type="date" value="${tarikhDefault}" onchange="updateHari()">
+        <div class="help" id="infoMinggu"></div></div>
     </div>
     <div class="form-row">
       <div class="form-field"><label>Hari</label>
@@ -1719,7 +1782,75 @@ function renderBorang(){
   }else{
     addIssue();addIssue();
   }
+  PAKSA_BARU=false;
+  updateHari();
 }
+let PAKSA_BARU=false;
+function paksaBorangBaharu(){PAKSA_BARU=true;navigate("borang");}
+/* Kemaskini medan Hari + papar minggu yang dikira daripada TARIKH SESI */
+function updateHari(){
+  const t=$("#dTarikh")?$("#dTarikh").value:"";
+  const el=$("#infoMinggu");
+  if(!t){ if(el)el.innerHTML=""; return; }
+  if($("#dHari"))$("#dHari").value=hariMelayu(t);
+  const info=mingguInfo(t);
+  if(!el||!info)return;
+  let msg=`Sesi ini dikira sebagai <b>Minggu ${info.minggu}/${info.tahun}</b> (${fmtDate(info.mula)} – ${fmtDate(info.tamat)}). Tarikh akhir hantar: <b>${fmtDate(info.tarikhAkhir)}</b>.`;
+  let warna="var(--muted)";
+  if(info.hujungMinggu){
+    msg=`⚠ Tarikh jatuh pada hujung minggu. Sesi DP-PPD dijalankan <b>Ahad–Khamis</b>.`; warna="var(--danger)";
+  }else{
+    const sedia=laporanMingguSedia(SESSION.ppdId, info.minggu, info.tahun, EDIT_ID);
+    if(sedia){ msg=`⚠ Sudah ada laporan bagi <b>Minggu ${info.minggu}</b> (sesi ${fmtDate(sedia.tarikh)}). Satu minggu satu laporan — sila kemaskini laporan tersebut.`; warna="var(--danger)"; }
+    else if(adakahLewat(t, todayISO())){ msg+=` <b style="color:var(--brass)">(Penghantaran lewat)</b>`; }
+  }
+  el.innerHTML=`<span style="color:${warna}">${msg}</span>`;
+}
+
+/* ---- PENANGGUHAN: DP-PPD dilaksanakan pada minggu berikutnya ---- */
+function mintaTangguh(){
+  const info=mingguInfo(todayISO());
+  showModal("Tangguh DP-PPD ke Minggu Hadapan?",
+    `<p style="font-size:14px;margin-bottom:12px">Anda menyatakan bahawa sesi Dialog Prestasi bagi
+      <b>Minggu ${info.minggu}</b> (${fmtDate(info.mula)} – ${fmtDate(info.tamat)}) <b>tidak dijalankan</b>
+      dan akan dilaksanakan pada minggu berikutnya.</p>
+     <div class="form-field"><label>Sebab / Catatan (pilihan)</label>
+       <textarea id="tgCatatan" placeholder="cth: PPD menghadiri mesyuarat negeri"></textarea></div>
+     <div style="background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#7a5c08">
+       Status ini akan dipapar kepada JPN sebagai <b>Ditangguh</b> (bukan "Belum Hantar").
+       Anda masih boleh menghantar laporan minggu ini dengan membatalkan penangguhan.
+     </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+     <button class="btn btn-navy" onclick="simpanTangguh()">Sahkan Penangguhan</button>`);
+}
+function simpanTangguh(){
+  const info=mingguInfo(todayISO());
+  const catatan=$("#tgCatatan")?$("#tgCatatan").value.trim():"";
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{
+      await apiPost("tangguhDialog",{ppdId:SESSION.ppdId,minggu:info.minggu,tahun:info.tahun,
+        tarikh:info.mula,oleh:SESSION.nama,catatan});
+      await refreshData();closeModal();buildSidebar();navigate("borang");toast("Penangguhan direkodkan");
+    }catch(err){toast(err.message||"Gagal merekod penangguhan");}})();
+    return;
+  }
+  DB.dialog.push({id:"TG"+Date.now(),ppdId:SESSION.ppdId,tarikh:info.mula,minggu:info.minggu,tahun:info.tahun,
+    pengerusi:"",hari:"",masa:"",tempat:"",kehadiran:[],ringkasan:catatan,status:"Ditangguh",
+    tarikhSubmit:todayISO(),dicatatOleh:SESSION.nama,disahkanOleh:"",dihantarKePengarah:false,
+    tarikhHantarPengarah:null,gambar1:null,gambar2:null});
+  closeModal();buildSidebar();navigate("borang");toast("Penangguhan direkodkan");
+}
+function batalTangguh(dialogId){
+  if(!CONFIG.DEMO_MODE){
+    (async()=>{try{await apiPost("batalTangguh",{dialogId});await refreshData();
+      buildSidebar();navigate("borang");toast("Penangguhan dibatalkan");
+    }catch(err){toast(err.message||"Gagal membatalkan");}})();
+    return;
+  }
+  DB.dialog=DB.dialog.filter(d=>d.id!==dialogId);
+  buildSidebar();navigate("borang");toast("Penangguhan dibatalkan");
+}
+
 /* ---- Mula / batal mod kemaskini ---- */
 function mulaKemaskini(dialogId){EDIT_ID=dialogId;navigate("borang");}
 function batalKemaskini(){EDIT_ID=null;navigate("rekod");}
@@ -1838,12 +1969,24 @@ function submitDialog(){
   if(!valid||!issues.length){toast("Sila lengkapkan Kategori, Isu & Tindakan bagi setiap isu");return;}
   const kehadiran=$("#dHadir").value.split("\n").map(s=>s.trim()).filter(Boolean);
   const editing = EDIT_ID ? DB.dialog.find(d=>d.id===EDIT_ID) : null;
+  // ---- Minggu dikira daripada TARIKH SESI (bukan tarikh hantar) ----
+  const tarikhSesi=$("#dTarikh").value;
+  const info=mingguInfo(tarikhSesi);
+  if(!info){toast("Sila pilih tarikh sesi yang sah");return;}
+  if(info.hujungMinggu){toast("Sesi DP-PPD hanya pada Ahad–Khamis. Sila semak tarikh sesi.");return;}
+  const bertindih=laporanMingguSedia(SESSION.ppdId, info.minggu, info.tahun, editing?editing.id:null);
+  if(bertindih){
+    toast(`Sudah ada laporan bagi Minggu ${info.minggu} — sila kemaskini laporan tersebut`);
+    return;
+  }
+  // batalkan rekod penangguhan bagi minggu ini (laporan sebenar mengatasi penangguhan)
+  const tg=tangguhBagi(SESSION.ppdId, info.minggu);
 
   if(!CONFIG.DEMO_MODE){
     // ---- MOD LIVE: hantar ke GAS ----
     const payload={ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,hari:$("#dHari").value,
       masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,
-      minggu:editing?editing.minggu:LATEST_WEEK,tahun:DB.config.TAHUN_SEMASA,
+      minggu:info.minggu,tahun:info.tahun,tangguhId:(tg?tg.id:""),
       kehadiran,ringkasan:$("#dRingkas").value,disubmitOleh:SESSION.nama,dicatatOleh:dicatat,disahkanOleh:disah,
       gambar1:borangGambar[1]||"",gambar2:borangGambar[2]||"",
       issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
@@ -1862,7 +2005,7 @@ function submitDialog(){
   const keepOrData=(v)=>!v?null:(String(v).startsWith("KEEP:")?String(v).slice(5):v);
   if(editing){
     // kemaskini rekod sedia ada
-    Object.assign(editing,{tarikh:$("#dTarikh").value,pengerusi,hari:$("#dHari").value,
+    Object.assign(editing,{tarikh:$("#dTarikh").value,minggu:info.minggu,tahun:info.tahun,pengerusi,hari:$("#dHari").value,
       masa:$("#dMasa").value,tempat:$("#dTempat").value,kehadiran,ringkasan:$("#dRingkas").value,
       dicatatOleh:dicatat,disahkanOleh:disah,
       gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
@@ -1876,8 +2019,9 @@ function submitDialog(){
     buildSidebar();navigate("rekod");
     return;
   }
+  if(tg) DB.dialog=DB.dialog.filter(d=>d.id!==tg.id);   // buang penangguhan
   const dId="D"+Date.now();
-  DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:LATEST_WEEK,tahun:2026,
+  DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:info.minggu,tahun:info.tahun,
     pengerusi,hari:$("#dHari").value,masa:$("#dMasa").value,tempat:$("#dTempat").value,
     kehadiran,ringkasan:$("#dRingkas").value,status:"Selesai",tarikhSubmit:todayISO(),
     dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null,
@@ -1914,6 +2058,18 @@ function renderRekod(){
     const issues=DB.isu.filter(i=>i.dialogId===d.id);
     const fbs=DB.maklumBalas.filter(f=>f.dialogId===d.id);
     const batal=isDibatalkan(d);
+    if(isTangguh(d)){
+      h+=`<div class="card"><div class="card-head"><div>
+        <h3 style="font-size:17px">Minggu ${d.minggu} · DP-PPD Ditangguh</h3>
+        <div class="sub">Direkodkan ${fmtDate(d.tarikhSubmit)}</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="batalTangguh('${d.id}')">↺ Batal Penangguhan</button>
+          <span class="badge b-pending">Ditangguh</span></div></div>
+        <div class="card-body"><div style="font-size:13.5px;color:var(--muted)">
+        Sesi Dialog Prestasi minggu ini dinyatakan akan dilaksanakan pada minggu berikutnya.
+        ${d.ringkasan?`<br><b>Catatan:</b> ${d.ringkasan}`:""}</div></div></div>`;
+      return;
+    }
     h+=`<div class="card"${batal?' style="opacity:.72"':''}><div class="card-head"><div>
       <h3 style="font-size:17px">Minggu ${d.minggu} · ${fmtDate(d.tarikh)}</h3>
       <div class="sub">${issues.length} isu · dihantar ${fmtDate(d.tarikhSubmit)}${batal?" · <b style='color:var(--danger)'>Dibatalkan</b>":""}</div></div>
