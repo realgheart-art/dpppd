@@ -368,8 +368,21 @@ function mapFromSheets(raw){
     return {id:r.TindakSusulID,isuId:r.IsuID,dialogId:isu.dialogId,ppdId:isu.ppdId,kategoriId:isu.kategoriId,
       pic:r.PIC,tarikhSasaran:dstr(r.TarikhSasaran),status:r.Status,tarikhSelesai:dstr(r.TarikhSelesai),catatan:r.CatatanKemaskini};
   });
+  binaSenaraiMinggu();
   DB.maklumBalas=(raw.maklumBalas||[]).map(r=>({id:r.MaklumBalasID,dialogId:r.DialogID,isuId:r.IsuID||null,
     komen:r.Komen,oleh:r.DisiOleh,tarikh:dstr(r.Tarikh)}));
+}
+/* Senarai minggu dibina daripada TARIKH sesi rekod (bukan MingguKe tersimpan) */
+function binaSenaraiMinggu(){
+  const peta={};
+  DB.dialog.forEach(d=>{
+    if(!d.tarikh||isDibatalkan(d))return;
+    const i=mingguInfo(d.tarikh); if(!i)return;
+    const k=i.tahun+"-"+i.minggu;
+    if(!peta[k]) peta[k]={no:i.minggu,tahun:i.tahun,tarikh:i.mula};
+  });
+  const senarai=Object.values(peta).sort((a,b)=>(a.tahun-b.tahun)||(a.no-b.no));
+  if(senarai.length) DB.weeks=senarai;
 }
 async function loadAllData(){
   const raw=await apiGet("init");
@@ -617,8 +630,8 @@ function adakahLewat(tarikhSesi, tarikhHantar){
 }
 /* Laporan aktif sedia ada bagi PPD pada minggu tertentu */
 function laporanMingguSedia(ppdId, minggu, tahun, kecualiId){
-  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(minggu)
-    &&Number(d.tahun)===Number(tahun)&&!isDibatalkan(d)&&!isTangguh(d)&&d.id!==kecualiId)||null;
+  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,minggu)
+    &&Number(tahunRekod(d))===Number(tahun)&&!isDibatalkan(d)&&!isTangguh(d)&&d.id!==kecualiId)||null;
 }
 function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
   const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
@@ -857,7 +870,7 @@ async function tulisLaporanKeDoc(doc, d, opts={}){
    PDF GABUNGAN — semua laporan mengikut minggu & pilihan PPD
    ============================================================ */
 function laporanTerpilih(minggu, ppdId){
-  let list = dialogAktif(DB.dialog).filter(d=>Number(d.minggu)===Number(minggu));
+  let list = dialogAktif(DB.dialog).filter(d=>padanMinggu(d,minggu));
   if(ppdId) list = list.filter(d=>samePpd(d.ppdId,ppdId));
   // jika ada pendua, ambil laporan terkini sahaja bagi setiap PPD
   const ikutPpd={};
@@ -1137,10 +1150,11 @@ function renderDashboard(){
     const tg=tangguhBagi(p.id,LATEST_WEEK);
     const nIsu=d?DB.isu.filter(i=>i.dialogId===d.id).length:0;
     h+=`<tr><td><b>${p.nama}</b></td>
-      <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>'
-        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>
+      <td class="t-center">${d?'<span class="comp-cell comp-yes">DP</span>'
+        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">–</span>')}</td>
       <td class="t-center">${d?nIsu:"—"}</td>
-      <td>${d?`${fmtDate(d.tarikh)}${adakahLewat(d.tarikh,d.tarikhSubmit)?' <span class="badge b-pending">Lewat</span>':''}`:"—"}</td></tr>`;
+      <td>${d?`${fmtDate(d.tarikh)}${adakahLewat(d.tarikh,d.tarikhSubmit)?' <span class="badge b-pending">Lewat</span>':''}
+        <div style="font-size:11px;color:var(--muted)">Dihantar pada ${fmtDate(d.tarikhSubmit)}</div>`:"—"}</td></tr>`;
   });
   h+=`</tbody></table></div></div></div>`;
 
@@ -1179,9 +1193,12 @@ function renderPematuhan(){
       if(d)hantar++;
       const lewat=d?adakahLewat(d.tarikh,d.tarikhSubmit):false;
       cells+=`<td class="t-center">${d
-        ? `<span class="comp-cell comp-yes">Hantar</span>
-           <div style="font-size:10.5px;color:var(--muted);margin-top:3px">${fmtDate(d.tarikh)}${lewat?' <b style="color:var(--brass)">· Lewat</b>':''}</div>`
-        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>`;
+        ? `<span class="comp-cell comp-yes">DP</span>
+           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35">
+             ${fmtDate(d.tarikh)}
+             <br><span style="font-size:10px">Dihantar pada ${fmtDate(d.tarikhSubmit)}${lewat?' <b style="color:var(--brass)">· Lewat</b>':''}</span>
+           </div>`
+        :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">–</span>')}</td>`;
     });
     const kadar=Math.round(hantar/DB.weeks.length*100);
     const col=kadar===100?"var(--ok)":kadar>=50?"var(--brass)":"var(--danger)";
@@ -1430,7 +1447,7 @@ function tandaPengarah(dialogId){
   buildSidebar();renderPenyelarasan();toast("Laporan ditanda dihantar kepada Pengarah");
 }
 function tandaSemuaPengarah(){
-  const senarai=DB.dialog.filter(d=>d.minggu===LATEST_WEEK&&!d.dihantarKePengarah&&!isDibatalkan(d));
+  const senarai=DB.dialog.filter(d=>padanMinggu(d,LATEST_WEEK)&&!d.dihantarKePengarah&&!isDibatalkan(d)&&!isTangguh(d));
   if(!senarai.length){toast("Tiada laporan menunggu penghantaran");return;}
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{
@@ -1637,14 +1654,25 @@ const isDibatalkan=(d)=>String(d.status||"").toLowerCase()==="dibatalkan";
 const isTangguh=(d)=>String(d.status||"").toLowerCase()==="ditangguh";
 /* laporan sebenar sahaja — tidak termasuk rekod dibatalkan / ditangguh */
 const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d)&&!isTangguh(d));
+/* Minggu & tahun SEBENAR bagi satu rekod — sentiasa dikira daripada TARIKH SESI.
+   Rekod lama mungkin menyimpan MingguKe yang dikira semasa hantar; ini mengatasinya. */
+function mingguRekod(d){
+  const i=d&&d.tarikh?mingguInfo(d.tarikh):null;
+  return i?i.minggu:Number(d&&d.minggu)||0;
+}
+function tahunRekod(d){
+  const i=d&&d.tarikh?mingguInfo(d.tarikh):null;
+  return i?i.tahun:(Number(d&&d.tahun)||Number(DB.config.TAHUN_SEMASA));
+}
+const padanMinggu=(d,wk)=>Number(mingguRekod(d))===Number(wk);
 /* rekod penangguhan bagi PPD pada minggu tertentu */
 function tangguhBagi(ppdId,wk){
-  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&isTangguh(d))||null;
+  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)&&isTangguh(d))||null;
 }
 function ppdTangguhMinggu(wk){
   const sah=new Set(DB.ppd.map(x=>normId(x.id)));
   const set=new Set();
-  DB.dialog.forEach(d=>{ if(Number(d.minggu)===Number(wk)&&isTangguh(d)&&sah.has(normId(d.ppdId))) set.add(normId(d.ppdId)); });
+  DB.dialog.forEach(d=>{ if(padanMinggu(d,wk)&&isTangguh(d)&&sah.has(normId(d.ppdId))) set.add(normId(d.ppdId)); });
   return set;
 }
 /* PPD unik yang menghantar laporan aktif bagi sesuatu minggu (elak kiraan berganda) */
@@ -1652,7 +1680,7 @@ function ppdHantarMinggu(wk){
   const sah=new Set(DB.ppd.map(x=>normId(x.id)));
   const set=new Set();
   DB.dialog.forEach(d=>{
-    if(Number(d.minggu)!==Number(wk)) return;
+    if(!padanMinggu(d,wk)) return;
     if(isDibatalkan(d)||isTangguh(d)) return;
     const id=normId(d.ppdId);
     if(sah.has(id)) set.add(id);
@@ -1661,7 +1689,7 @@ function ppdHantarMinggu(wk){
 }
 /* laporan aktif terkini bagi satu PPD/minggu (jika ada pendua, ambil yang terbaru) */
 function dialogTerkini(ppdId,wk){
-  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&Number(d.minggu)===Number(wk)&&!isDibatalkan(d)&&!isTangguh(d));
+  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)&&!isDibatalkan(d)&&!isTangguh(d));
   if(!senarai.length) return null;
   return senarai.sort((a,b)=>String(b.tarikhSubmit||'').localeCompare(String(a.tarikhSubmit||'')))[0];
 }
@@ -1669,7 +1697,7 @@ function dialogTerkini(ppdId,wk){
 function penduaMinggu(wk){
   const kira={};
   DB.dialog.forEach(d=>{
-    if(Number(d.minggu)!==Number(wk)||isDibatalkan(d)||isTangguh(d)) return;
+    if(!padanMinggu(d,wk)||isDibatalkan(d)||isTangguh(d)) return;
     const id=normId(d.ppdId); kira[id]=(kira[id]||0)+1;
   });
   return Object.keys(kira).filter(k=>kira[k]>1).map(k=>ppdName(k));
