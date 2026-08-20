@@ -209,6 +209,20 @@ tbody tr:last-child td{border-bottom:none}
 .filter-bar select,.filter-bar input{padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-size:13.5px}
 .filter-bar select:focus,.filter-bar input:focus{outline:none;border-color:var(--brass)}
 
+/* --- Penunjuk sedang memproses --- */
+.proses-back{position:fixed;inset:0;background:rgba(15,41,66,.55);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;z-index:300}
+.proses-box{background:#fff;border-radius:14px;padding:26px 34px;text-align:center;
+  box-shadow:0 18px 50px rgba(0,0,0,.28);min-width:240px}
+.spinner{width:38px;height:38px;margin:0 auto 14px;border:3.5px solid var(--line);
+  border-top-color:var(--brass);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proses-msg{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14.5px;color:var(--navy)}
+.proses-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.btn:disabled,.btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.btn-spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.45);
+  border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:7px}
+@media(prefers-reduced-motion:reduce){.spinner,.btn-spin{animation-duration:2s}}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--navy);
   color:#fff;padding:13px 22px;border-radius:11px;font-weight:600;font-size:14px;box-shadow:0 12px 30px rgba(0,0,0,.25);
   z-index:200;opacity:0;transition:all .3s;display:flex;align-items:center;gap:9px}
@@ -638,6 +652,30 @@ function laporanMingguSedia(ppdId, minggu, tahun, kecualiId){
 function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
   const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
   return w?w.tarikh:todayISO();
+}
+/* ============================================================
+   PENUNJUK PROSES — halang klik berganda semasa menyimpan
+   ============================================================ */
+let SEDANG_PROSES=false;
+function mulaProses(msg,sub){
+  if(SEDANG_PROSES) return false;          // sudah dalam proses — abaikan klik kedua
+  SEDANG_PROSES=true;
+  const el=document.createElement("div");
+  el.className="proses-back"; el.id="prosesBack";
+  el.innerHTML=`<div class="proses-box"><div class="spinner"></div>
+    <div class="proses-msg">${msg||"Sedang menyimpan…"}</div>
+    <div class="proses-sub">${sub||"Sila tunggu, jangan tutup halaman"}</div></div>`;
+  document.body.appendChild(el);
+  const bh=$("#btnHantar");
+  if(bh){ bh.dataset.asal=bh.textContent; bh.disabled=true;
+          bh.innerHTML='<span class="btn-spin"></span>Menyimpan…'; }
+  return true;
+}
+function tamatProses(){
+  SEDANG_PROSES=false;
+  const el=$("#prosesBack"); if(el)el.remove();
+  const bh=$("#btnHantar");
+  if(bh&&bh.dataset.asal){ bh.disabled=false; bh.textContent=bh.dataset.asal; }
 }
 function toast(msg){const t=$("#toast");$("#toastMsg").textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
 function statusBadge(st){
@@ -1896,7 +1934,7 @@ function renderBorang(){
   </div></div>`;
 
   h+=`<div class="btn-row" style="margin-top:4px">
-    <button class="btn btn-navy" onclick="submitDialog()" style="padding:13px 26px">${editing?"Simpan Perubahan":"Hantar Laporan"}</button>
+    <button class="btn btn-navy" id="btnHantar" onclick="submitDialog()" style="padding:13px 26px">${editing?"Simpan Perubahan":"Hantar Laporan"}</button>
     ${editing?`<button class="btn btn-ghost" onclick="batalKemaskini()">Batal</button>`
              :`<button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button>`}</div>`;
 
@@ -1969,28 +2007,34 @@ function mintaTangguh(){
 function simpanTangguh(){
   const info=mingguInfo(todayISO());
   const catatan=$("#tgCatatan")?$("#tgCatatan").value.trim():"";
+  if(!mulaProses("Merekod penangguhan…")) return;
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{
       await apiPost("tangguhDialog",{ppdId:SESSION.ppdId,minggu:info.minggu,tahun:info.tahun,
         tarikh:info.mula,oleh:SESSION.nama,catatan});
       await refreshData();closeModal();buildSidebar();navigate("borang");toast("Penangguhan direkodkan");
-    }catch(err){toast(err.message||"Gagal merekod penangguhan");}})();
+    }catch(err){toast(err.message||"Gagal merekod penangguhan");}
+    finally{tamatProses();}})();
     return;
   }
   DB.dialog.push({id:"TG"+Date.now(),ppdId:SESSION.ppdId,tarikh:info.mula,minggu:info.minggu,tahun:info.tahun,
     pengerusi:"",hari:"",masa:"",tempat:"",kehadiran:[],ringkasan:catatan,status:"Ditangguh",
     tarikhSubmit:todayISO(),dicatatOleh:SESSION.nama,disahkanOleh:"",dihantarKePengarah:false,
     tarikhHantarPengarah:null,gambar1:null,gambar2:null});
+  tamatProses();
   closeModal();buildSidebar();navigate("borang");toast("Penangguhan direkodkan");
 }
 function batalTangguh(dialogId){
+  if(!mulaProses("Membatalkan penangguhan…")) return;
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{await apiPost("batalTangguh",{dialogId});await refreshData();
       buildSidebar();navigate("borang");toast("Penangguhan dibatalkan");
-    }catch(err){toast(err.message||"Gagal membatalkan");}})();
+    }catch(err){toast(err.message||"Gagal membatalkan");}
+    finally{tamatProses();}})();
     return;
   }
   DB.dialog=DB.dialog.filter(d=>d.id!==dialogId);
+  tamatProses();
   buildSidebar();navigate("borang");toast("Penangguhan dibatalkan");
 }
 
@@ -2013,11 +2057,13 @@ function mintaPadamLaporan(dialogId){
      <button class="btn btn-navy" style="background:var(--danger)" onclick="padamLaporan('${dialogId}')">Ya, Batalkan Laporan</button>`);
 }
 function padamLaporan(dialogId){
+  if(!mulaProses("Membatalkan laporan…")) return;
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{
       await apiPost("cancelDialog",{dialogId,oleh:SESSION.nama}); await refreshData();
       closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
-    }catch(err){toast(err.message||"Gagal membatalkan laporan");}})();
+    }catch(err){toast(err.message||"Gagal membatalkan laporan");}
+    finally{tamatProses();}})();
     return;
   }
   const d=DB.dialog.find(x=>x.id===dialogId);
@@ -2027,6 +2073,7 @@ function padamLaporan(dialogId){
     const isuIds=DB.isu.filter(i=>i.dialogId===dialogId).map(i=>i.id);
     DB.tindakSusul=DB.tindakSusul.filter(t=>!isuIds.includes(t.isuId));
   }
+  tamatProses();
   closeModal();buildSidebar();navigate("rekod");toast("Laporan ditanda dibatalkan");
 }
 /* ---- Muat naik & pratonton gambar (dikecilkan di pelayar) ---- */
@@ -2135,17 +2182,21 @@ function submitDialog(){
       issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
         sektorPegawai:is.sektor,kawalanKPPD:is.kawalanKPPD,perluTindakSusul:is.perlu}))};
     if(editing) payload.dialogId=editing.id;
+    if(!mulaProses(editing?"Menyimpan perubahan…":"Menghantar laporan…",
+       "Sila tunggu — jangan klik berulang atau tutup halaman")) return;
     (async()=>{try{
       await apiPost(editing?"updateDialog":"submitDialog",payload); await refreshData();
       EDIT_ID=null;
       toast(editing?"Laporan berjaya dikemaskini ✓":"Laporan Dialog Prestasi berjaya dihantar ✓");
       buildSidebar(); navigate("rekod");
-    }catch(err){toast(err.message||"Gagal menyimpan laporan");}})();
+    }catch(err){toast(err.message||"Gagal menyimpan laporan");}
+    finally{tamatProses();}})();
     return;
   }
 
   // ---- MOD DEMO ----
   const keepOrData=(v)=>!v?null:(String(v).startsWith("KEEP:")?String(v).slice(5):v);
+  if(!mulaProses(editing?"Menyimpan perubahan…":"Menghantar laporan…")) return;
   if(editing){
     // kemaskini rekod sedia ada
     Object.assign(editing,{tarikh:$("#dTarikh").value,minggu:info.minggu,tahun:info.tahun,pengerusi,hari:$("#dHari").value,
@@ -2158,6 +2209,7 @@ function submitDialog(){
     DB.isu=DB.isu.filter(i=>i.dialogId!==editing.id);
     tulisIsuDemo(editing.id,issues,$("#dTarikh").value);
     EDIT_ID=null;
+    tamatProses();
     toast("Laporan berjaya dikemaskini ✓");
     buildSidebar();navigate("rekod");
     return;
@@ -2170,6 +2222,7 @@ function submitDialog(){
     dicatatOleh:dicatat,disahkanOleh:disah,dihantarKePengarah:false,tarikhHantarPengarah:null,
     gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
   tulisIsuDemo(dId,issues,$("#dTarikh").value);
+  tamatProses();
   toast("Laporan Dialog Prestasi berjaya dihantar ✓");
   buildSidebar();navigate("rekod");
 }
@@ -2288,15 +2341,18 @@ function openTSUpdate(tsId){
 }
 function saveTS(tsId){
   const status=$("#tsStatus").value, catatan=$("#tsCatatan").value;
+  if(!mulaProses("Menyimpan kemaskini…")) return;
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{await apiPost("updateTindakSusul",{tindakSusulId:tsId,status,catatan});await refreshData();
       closeModal();buildSidebar();renderTindakSusulPPD();toast("Tindak susul dikemaskini");
-    }catch(err){toast(err.message||"Gagal mengemaskini");}})();
+    }catch(err){toast(err.message||"Gagal mengemaskini");}
+    finally{tamatProses();}})();
     return;
   }
   const t=DB.tindakSusul.find(x=>x.id===tsId);
   t.status=status;t.catatan=catatan;
-  if(t.status==="Selesai"&&!t.tarikhSelesai)t.tarikhSelesai="2026-08-09";
+  if(t.status==="Selesai"&&!t.tarikhSelesai)t.tarikhSelesai=todayISO();
+  tamatProses();
   closeModal();buildSidebar();renderTindakSusulPPD();toast("Tindak susul dikemaskini");
 }
 
