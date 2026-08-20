@@ -129,6 +129,8 @@ tbody tr:last-child td{border-bottom:none}
 .comp-yes{background:var(--ok-bg);color:var(--ok)}
 .comp-no{background:var(--danger-bg);color:var(--danger)}
 .comp-tangguh{background:var(--warn-bg);color:#7a5c08}
+.comp-klik{cursor:pointer;transition:transform .1s,box-shadow .1s}
+.comp-klik:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(31,138,76,.28);text-decoration:underline}
 
 /* badges */
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
@@ -674,6 +676,95 @@ function lihatGambar(src){
 }
 
 /* ============================================================
+   PRATONTON LAPORAN — pop-up gaya LAMPIRAN A
+   ============================================================ */
+function lihatLaporan(dialogId){
+  const d=DB.dialog.find(x=>x.id===dialogId);
+  if(!d){toast("Rekod tidak dijumpai");return;}
+  const issues=DB.isu.filter(i=>i.dialogId===dialogId);
+  const kehadiran=Array.isArray(d.kehadiran)?d.kehadiran:(d.kehadiran?String(d.kehadiran).split("|").map(x=>x.trim()).filter(Boolean):[]);
+  const abjad="abcdefghij";
+  const lewat=adakahLewat(d.tarikh,d.tarikhSubmit);
+  const luarBil=issues.map((i,idx)=>({no:idx+1,luar:(i.kawalanKPPD||"Ya")==="Tidak"})).filter(x=>x.luar).map(x=>x.no);
+  const baris=(no,label,nilai)=>`<tr>
+    <td style="padding:3px 0;vertical-align:top;width:22px;font-weight:700">${no}.</td>
+    <td style="padding:3px 0;vertical-align:top;width:110px;font-weight:700">${label}</td>
+    <td style="padding:3px 0;vertical-align:top;width:14px">:</td>
+    <td style="padding:3px 0;vertical-align:top">${nilai||"—"}</td></tr>`;
+
+  let body=`<div style="text-align:center;margin-bottom:14px">
+      <div style="font-family:'Fraunces',serif;font-weight:600;font-size:17px;color:var(--navy)">LAPORAN</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--navy)">Dialog Prestasi Pejabat Pendidikan Daerah</div>
+      <div style="font-size:13px;font-weight:600;color:var(--navy)">DP PPD</div>
+      <div style="height:2px;background:var(--brass);margin-top:10px"></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">
+      <b style="color:var(--navy)">${ppdName(d.ppdId)}</b> · Minggu ${mingguRekod(d)}/${tahunRekod(d)}
+      · Dihantar pada ${fmtDate(d.tarikhSubmit)}${lewat?' <span class="badge b-pending">Lewat</span>':''}
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      ${baris(1,"Pengerusi",d.pengerusi)}
+      ${baris(2,"Tarikh",fmtDate(d.tarikh))}
+      ${baris(3,"Hari",d.hari||hariMelayu(d.tarikh))}
+      ${baris(4,"Masa",d.masa)}
+      ${baris(5,"Tempat",d.tempat)}
+      <tr><td style="padding:3px 0;vertical-align:top;font-weight:700">6.</td>
+          <td style="padding:3px 0;vertical-align:top;font-weight:700">Kehadiran</td>
+          <td style="padding:3px 0;vertical-align:top">:</td>
+          <td style="padding:3px 0">${kehadiran.length?kehadiran.map((k,i)=>`<div>${abjad[i]||"-"}. ${k}</div>`).join(""):"—"}</td></tr>
+    </table>`;
+
+  body+=`<div style="font-weight:700;font-size:13px;margin:14px 0 8px">7. Isu dan Tindakan :</div>
+    <div class="scroll-x"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="background:var(--navy);color:#fff">
+        <th style="padding:7px;border:1px solid #999;width:36px">BIL.</th>
+        <th style="padding:7px;border:1px solid #999">ISU</th>
+        <th style="padding:7px;border:1px solid #999">TINDAKAN</th>
+        <th style="padding:7px;border:1px solid #999;width:110px">SEKTOR / PEGAWAI</th></tr></thead><tbody>`;
+  if(issues.length){
+    issues.forEach((i,idx)=>{
+      body+=`<tr>
+        <td style="padding:7px;border:1px solid #ccc;text-align:center;vertical-align:top">${idx+1}</td>
+        <td style="padding:7px;border:1px solid #ccc;vertical-align:top">${i.penerangan||"—"}</td>
+        <td style="padding:7px;border:1px solid #ccc;vertical-align:top">${i.tindakan||"—"}</td>
+        <td style="padding:7px;border:1px solid #ccc;vertical-align:top">${i.sektorPegawai||"—"}</td></tr>`;
+    });
+  }else{
+    body+=`<tr><td colspan="4" style="padding:12px;border:1px solid #ccc;text-align:center;color:var(--muted)">Tiada isu direkodkan</td></tr>`;
+  }
+  body+=`</tbody></table></div>`;
+
+  if(luarBil.length){
+    body+=`<div style="margin-top:10px;font-size:12px;font-style:italic;color:#8c2b20">
+      Nota: Bil. ${luarBil.join(", ")} adalah perkara di luar kawalan KPPD — dikemukakan untuk penyelarasan di peringkat JPN.</div>`;
+  }
+  const thumbs=gambarThumbsHtml(d);
+  if(thumbs) body+=`<div style="margin-top:14px">
+    <div style="font-size:11.5px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Lampiran Gambar</div>${thumbs}</div>`;
+
+  body+=`<div style="display:flex;gap:30px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px">
+      <div style="flex:1"><div style="color:var(--muted)">Dicatat oleh:</div>
+        <div style="font-weight:600;margin-top:4px">${d.dicatatOleh||"—"}</div></div>
+      <div style="flex:1"><div style="color:var(--muted)">Disahkan oleh:</div>
+        <div style="font-weight:600;margin-top:4px">${d.disahkanOleh||"—"}</div></div>
+    </div>
+    <div style="margin-top:12px;font-size:12px"><b>s.k.</b> Pengarah Pendidikan, Jabatan Pendidikan Negeri Kedah
+      ${d.dihantarKePengarah?`<span style="color:var(--ok)"> (Dihantar${d.tarikhHantarPengarah?" · "+fmtDate(d.tarikhHantarPengarah):""})</span>`:""}</div>`;
+
+  const m=document.createElement("div");m.className="modal-back";m.id="modalBack";
+  m.innerHTML=`<div class="modal" style="max-width:760px">
+    <div class="modal-head"><h3>Rumusan Laporan DP PPD</h3>
+      <button class="banner-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Tutup</button>
+      <button class="btn btn-brass" onclick="generateLaporanPDF('${d.id}')">⬇ Muat Turun PDF</button>
+    </div></div>`;
+  m.onclick=(e)=>{if(e.target===m)closeModal();};
+  document.body.appendChild(m);
+}
+
+/* ============================================================
    JANA PDF — Format rasmi LAMPIRAN A (DP PPD), potret A4
    ============================================================ */
 function drawCrestFallback(doc,NAVY,BRASS,M){
@@ -1150,7 +1241,7 @@ function renderDashboard(){
     const tg=tangguhBagi(p.id,LATEST_WEEK);
     const nIsu=d?DB.isu.filter(i=>i.dialogId===d.id).length:0;
     h+=`<tr><td><b>${p.nama}</b></td>
-      <td class="t-center">${d?'<span class="comp-cell comp-yes">DP</span>'
+      <td class="t-center">${d?`<span class="comp-cell comp-yes comp-klik" title="Lihat rumusan laporan" onclick="lihatLaporan('${d.id}')">DP</span>`
         :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">–</span>')}</td>
       <td class="t-center">${d?nIsu:"—"}</td>
       <td>${d?`${fmtDate(d.tarikh)}${adakahLewat(d.tarikh,d.tarikhSubmit)?' <span class="badge b-pending">Lewat</span>':''}
@@ -1193,7 +1284,7 @@ function renderPematuhan(){
       if(d)hantar++;
       const lewat=d?adakahLewat(d.tarikh,d.tarikhSubmit):false;
       cells+=`<td class="t-center">${d
-        ? `<span class="comp-cell comp-yes">DP</span>
+        ? `<span class="comp-cell comp-yes comp-klik" title="Lihat rumusan laporan" onclick="lihatLaporan('${d.id}')">DP</span>
            <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35">
              ${fmtDate(d.tarikh)}
              <br><span style="font-size:10px">Dihantar pada ${fmtDate(d.tarikhSubmit)}${lewat?' <b style="color:var(--brass)">· Lewat</b>':''}</span>
