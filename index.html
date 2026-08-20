@@ -349,7 +349,8 @@ function mapFromSheets(raw){
     REMINDER_BANNER_AKTIF:yn(raw.config.REMINDER_BANNER_AKTIF),
   };
   DB.users=(raw.users||[]).map(r=>({username:String(r.Username).toLowerCase(),nama:r.Nama,peranan:r.Peranan,ppdId:r.PPD_ID&&r.PPD_ID!=="-"?r.PPD_ID:null,status:r.Status}));
-  DB.weeks=(raw.weeks||[]).map(w=>({no:Number(w.no),tarikh:dstr(w.tarikh)}));
+  DB.weeks=(raw.weeks||[]).map(w=>({no:Number(w.no),tarikh:dstr(w.tarikh),
+    tahun:Number(w.tahun)|| (w.tarikh?new Date(w.tarikh).getFullYear():Number(raw.config.TAHUN_SEMASA))}));
   DB.dialog=(raw.dialog||[]).map(r=>({id:r.DialogID,ppdId:r.PPD_ID,tarikh:dstr(r.TarikhDialog),
     hari:r.Hari,masa:r.Masa,tempat:r.Tempat,pengerusi:r.Pengerusi,minggu:Number(r.MingguKe),tahun:Number(r.Tahun),
     kehadiran:r.Kehadiran?String(r.Kehadiran).split("|").map(s=>s.trim()).filter(Boolean):[],
@@ -439,10 +440,10 @@ const DB = {
     {username:"ppd09",nama:"Pegawai PPD Sik",peranan:"PPD",ppdId:"PPD09"},
     {username:"ppd10",nama:"Pegawai PPD Yan",peranan:"PPD",ppdId:"PPD10"},
   ],
-  weeks:[
-    {no:1,tarikh:"2026-07-16"},{no:2,tarikh:"2026-07-23"},
-    {no:3,tarikh:"2026-07-30"},{no:4,tarikh:"2026-08-06"},
-  ],
+  // demo: nombor minggu dikira daripada tarikh sesi (Ahad–Khamis)
+  weeks:["2026-07-16","2026-07-23","2026-07-30","2026-08-06"].map(t=>{
+    const i=mingguInfo(t); return {no:i.minggu, tarikh:t, tahun:i.tahun};
+  }),
   dialog:[], // diisi generateDummy()
   isu:[],
   tindakSusul:[],
@@ -587,6 +588,25 @@ function mingguInfo(tarikhStr){
   const minggu=Math.round((mula-ahadPertama)/(7*86400000))+1;
   return {minggu, tahun, mula:isoDari(mula), tamat:isoDari(tamat), tarikhAkhir:isoDari(akhir),
           hujungMinggu:(d.getDay()===5||d.getDay()===6)};
+}
+/* Julat tarikh (Ahad–Khamis) dikira daripada NOMBOR MINGGU + TAHUN */
+function julatMinggu(minggu, tahun){
+  const thn=Number(tahun)||Number(DB.config.TAHUN_SEMASA)||new Date().getFullYear();
+  const jan1=new Date(thn,0,1);
+  const ahadPertama=new Date(jan1); ahadPertama.setDate(jan1.getDate()-jan1.getDay());
+  const mula=new Date(ahadPertama); mula.setDate(ahadPertama.getDate()+(Number(minggu)-1)*7);
+  const tamat=new Date(mula); tamat.setDate(mula.getDate()+4);
+  return {mula:isoDari(mula), tamat:isoDari(tamat)};
+}
+/* Papar julat ringkas: "09 – 13 Ogos 2026" */
+function julatRingkas(minggu, tahun){
+  const j=julatMinggu(minggu,tahun);
+  const a=new Date(j.mula), b=new Date(j.tamat);
+  const bln=(d)=>BULAN_MS[d.getMonth()];
+  const dd=(d)=>String(d.getDate()).padStart(2,"0");
+  return (bln(a)===bln(b) && a.getFullYear()===b.getFullYear())
+    ? `${dd(a)} – ${dd(b)} ${bln(b)} ${b.getFullYear()}`
+    : `${dd(a)} ${bln(a)} – ${dd(b)} ${bln(b)} ${b.getFullYear()}`;
 }
 /* Adakah penghantaran lewat? (selepas Ahad minggu berikutnya) */
 function adakahLewat(tarikhSesi, tarikhHantar){
@@ -1111,7 +1131,7 @@ function renderDashboard(){
   h+=`<div class="card"><div class="card-head"><div><h3>Status Hantar — Minggu ${LATEST_WEEK}</h3>
     <div class="sub">Klik "Status Pematuhan" untuk lihat semua minggu</div></div>
     <button class="btn btn-ghost btn-sm" onclick="navigate('pematuhan')">Lihat Penuh →</button></div>
-    <div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th><th class="t-center">Status</th><th class="t-center">Bil. Isu</th><th>Tarikh Submit</th></tr></thead><tbody>`;
+    <div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th><th class="t-center">Status</th><th class="t-center">Bil. Isu</th><th>Tarikh Sesi</th></tr></thead><tbody>`;
   DB.ppd.forEach(p=>{
     const d=dialogTerkini(p.id,LATEST_WEEK);
     const tg=tangguhBagi(p.id,LATEST_WEEK);
@@ -1119,7 +1139,8 @@ function renderDashboard(){
     h+=`<tr><td><b>${p.nama}</b></td>
       <td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>'
         :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>
-      <td class="t-center">${d?nIsu:"—"}</td><td>${d?fmtDate(d.tarikhSubmit):"—"}</td></tr>`;
+      <td class="t-center">${d?nIsu:"—"}</td>
+      <td>${d?`${fmtDate(d.tarikh)}${adakahLewat(d.tarikh,d.tarikhSubmit)?' <span class="badge b-pending">Lewat</span>':''}`:"—"}</td></tr>`;
   });
   h+=`</tbody></table></div></div></div>`;
 
@@ -1147,7 +1168,7 @@ function renderPematuhan(){
     h+=`<div class="banner" style="background:var(--danger-bg);border-color:var(--danger)"><span class="b-ico">!</span><div class="banner-text" style="color:#8c2b20"><b>Amaran data:</b> ${takPadan.length} kod PPD dalam laporan tidak sepadan dengan tab <b>PPD</b>: <b>${takPadan.join(", ")}</b>. Laporan ini tidak dapat dipadankan, jadi status kekal "Belum". Betulkan lajur <b>PPD_ID</b> dalam tab <b>Users</b> supaya sama dengan tab <b>PPD</b>.</div></div>`;
   }
   h+=`<div class="card"><div class="card-body flush"><div class="scroll-x"><table><thead><tr><th>PPD</th>`;
-  DB.weeks.forEach(w=>h+=`<th class="t-center">Minggu ${w.no}<br><span style="font-weight:500;font-size:10px;color:#aab">${fmtDate(w.tarikh)}</span></th>`);
+  DB.weeks.forEach(w=>h+=`<th class="t-center">Minggu ${w.no}<br><span style="font-weight:500;font-size:10px;color:#aab">${julatRingkas(w.no,w.tahun)}</span></th>`);
   h+=`<th class="t-center">Kadar</th></tr></thead><tbody>`;
   DB.ppd.forEach(p=>{
     let hantar=0;
@@ -1156,7 +1177,10 @@ function renderPematuhan(){
       const d=dialogTerkini(p.id,w.no);
       const tg=tangguhBagi(p.id,w.no);
       if(d)hantar++;
-      cells+=`<td class="t-center">${d?'<span class="comp-cell comp-yes">Hantar</span>'
+      const lewat=d?adakahLewat(d.tarikh,d.tarikhSubmit):false;
+      cells+=`<td class="t-center">${d
+        ? `<span class="comp-cell comp-yes">Hantar</span>
+           <div style="font-size:10.5px;color:var(--muted);margin-top:3px">${fmtDate(d.tarikh)}${lewat?' <b style="color:var(--brass)">· Lewat</b>':''}</div>`
         :(tg?'<span class="comp-cell comp-tangguh">Ditangguh</span>':'<span class="comp-cell comp-no">Belum</span>')}</td>`;
     });
     const kadar=Math.round(hantar/DB.weeks.length*100);
