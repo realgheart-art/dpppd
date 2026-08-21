@@ -1198,6 +1198,7 @@ function buildSidebar(){
     g.items.forEach(it=>{
       let badge="";
       if(it.id==="tindak-susul"){const n=DB.tindakSusul.filter(t=>t.status!=="Selesai").length;badge=`<span class="nav-badge">${n}</span>`;}
+      if(it.id==="maklum-balas"){const n=isuPerluMaklumBalas().filter(i=>fbBagiIsu(i.id).length===0).length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
       if(it.id==="penyelarasan"){const n=isuAktif().filter(i=>i.kawalanKPPD==="Tidak").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
       if(it.id==="tindak-susul-ppd"){const n=DB.tindakSusul.filter(t=>t.ppdId===SESSION.ppdId&&t.status!=="Selesai").length;if(n)badge=`<span class="nav-badge">${n}</span>`;}
       h+=`<button class="nav-item" data-page="${it.id}" onclick="navigate('${it.id}')">
@@ -1433,59 +1434,108 @@ function filterTS(){
 /* ============================================================
    JPN: MAKLUM BALAS
    ============================================================ */
+/* Isu yang memerlukan maklum balas JPN = perkara di luar kawalan KPPD */
+function isuPerluMaklumBalas(){
+  return isuAktif().filter(i=>(i.kawalanKPPD||"Ya")==="Tidak");
+}
+function fbBagiIsu(isuId){ return DB.maklumBalas.filter(f=>f.isuId===isuId); }
+
 function renderMaklumBalas(){
   let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Maklum Balas kepada PPD</h2>
-    <p>Beri komen JPN pada sesi Dialog Prestasi — PPD nampak bila log masuk</p></div>`;
-  h+=`<div class="filter-bar"><select id="fbPpd" onchange="renderMBList()"><option value="">Semua PPD</option>
-    ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}</select></div>`;
+    <p>Hanya perkara <b>di luar kawalan KPPD</b> yang memerlukan penyelarasan JPN dipaparkan di sini</p></div>`;
+  h+=`<div class="filter-bar">
+    <select id="fbPpd" onchange="renderMBList()"><option value="">Semua PPD</option>
+      ${DB.ppd.map(p=>`<option value="${p.id}">${p.nama}</option>`).join("")}</select>
+    <select id="fbStatus" onchange="renderMBList()">
+      <option value="perlu">Belum Dimaklum Balas</option>
+      <option value="ada">Sudah Dimaklum Balas</option>
+      <option value="">Semua</option>
+    </select></div>`;
   h+=`<div id="mbList"></div>`;
   $("#main").innerHTML=h;
   renderMBList();
 }
 function renderMBList(){
   const fp=$("#fbPpd")?$("#fbPpd").value:"";
-  let dialogs=dialogAktif(DB.dialog).filter(d=>!fp||d.ppdId===fp).sort((a,b)=>b.minggu-a.minggu);
-  let h="";
-  dialogs.slice(0,20).forEach(d=>{
-    const nIsu=DB.isu.filter(i=>i.dialogId===d.id).length;
-    const fbs=DB.maklumBalas.filter(f=>f.dialogId===d.id);
+  const fs=$("#fbStatus")?$("#fbStatus").value:"perlu";
+  let senarai=isuPerluMaklumBalas().filter(i=>!fp||samePpd(i.ppdId,fp));
+  if(fs==="perlu") senarai=senarai.filter(i=>fbBagiIsu(i.id).length===0);
+  if(fs==="ada")   senarai=senarai.filter(i=>fbBagiIsu(i.id).length>0);
+  // susun: minggu terbaru dahulu
+  senarai.sort((a,b)=>{
+    const da=DB.dialog.find(x=>x.id===a.dialogId), db_=DB.dialog.find(x=>x.id===b.dialogId);
+    return (db_?mingguRekod(db_):0)-(da?mingguRekod(da):0);
+  });
+
+  const belum=isuPerluMaklumBalas().filter(i=>fbBagiIsu(i.id).length===0).length;
+  let h=`<div class="stat-grid" style="margin-bottom:20px">
+    <div class="stat-card ${belum?'warn':'ok'}"><div class="lbl">Perlu Maklum Balas</div>
+      <div class="val">${belum}</div><div class="sub">isu luar kawalan KPPD</div></div>
+    <div class="stat-card ok"><div class="lbl">Sudah Dimaklum Balas</div>
+      <div class="val">${isuPerluMaklumBalas().length-belum}</div><div class="sub">daripada ${isuPerluMaklumBalas().length} isu</div></div>
+  </div>`;
+
+  if(!senarai.length){
+    h+=`<div class="card"><div class="card-body"><div class="empty" style="padding:36px 20px">
+      <div class="ico">✓</div>Tiada isu untuk tapisan ini.</div></div></div>`;
+    $("#mbList").innerHTML=h; return;
+  }
+
+  senarai.forEach(i=>{
+    const d=DB.dialog.find(x=>x.id===i.dialogId);
+    const fbs=fbBagiIsu(i.id);
+    const dimaklum=i.statusMakluman==="Telah Dimaklumkan";
     h+=`<div class="card"><div class="card-head"><div>
-      <h3 style="font-size:16px">${ppdName(d.ppdId)} · Minggu ${d.minggu}</h3>
-      <div class="sub">${fmtDate(d.tarikh)} · ${nIsu} isu dibincangkan</div></div>
+      <h3 style="font-size:16px">${ppdName(i.ppdId)} · Minggu ${d?mingguRekod(d):"?"}</h3>
+      <div class="sub">${d?fmtDate(d.tarikh):"—"} · <span class="badge b-cat">${katShort(i.kategoriId)}</span>
+        <span class="badge b-pending">Luar Kawalan KPPD</span>
+        ${dimaklum?'<span class="badge b-ok">Telah Dimaklumkan</span>':'<span class="badge b-danger">Belum Dimaklumkan</span>'}</div></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="generateLaporanPDF('${d.id}')">⬇ PDF</button>
-        <button class="btn btn-brass btn-sm" onclick="openFeedback('${d.id}')">+ Beri Maklum Balas</button></div></div>
-      <div class="card-body">`;
-    const thumbs=gambarThumbsHtml(d);
-    if(thumbs)h+=`<div style="margin-bottom:14px">${thumbs}</div>`;
+        ${d?`<button class="btn btn-ghost btn-sm" onclick="lihatLaporan('${d.id}')">Lihat Laporan</button>`:""}
+        <button class="btn btn-brass btn-sm" onclick="openFeedback('${i.id}')">+ Maklum Balas</button></div></div>
+      <div class="card-body">
+        <div style="font-size:14px;margin-bottom:6px"><b>Isu:</b> ${i.penerangan||"—"}</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          <b>Tindakan:</b> ${i.tindakan||"—"}${i.sektorPegawai?` · <b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:""}</div>`;
     if(fbs.length){
       fbs.forEach(f=>{h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`;});
     }else{
-      h+=`<div style="color:var(--muted);font-size:13px">Belum ada maklum balas untuk sesi ini.</div>`;
+      h+=`<div style="color:var(--muted);font-size:13px">Belum ada maklum balas JPN bagi isu ini.</div>`;
     }
     h+=`</div></div>`;
   });
   $("#mbList").innerHTML=h;
 }
-function openFeedback(dialogId){
-  const d=DB.dialog.find(x=>x.id===dialogId);
-  showModal(`Maklum Balas — ${ppdName(d.ppdId)} M${d.minggu}`,
-    `<div class="form-field"><label>Komen JPN <span class="req">*</span></label>
-     <textarea id="mbInput" placeholder="Tulis maklum balas atau arahan untuk PPD..."></textarea></div>`,
+function openFeedback(isuId){
+  const i=DB.isu.find(x=>x.id===isuId);
+  if(!i){toast("Isu tidak dijumpai");return;}
+  const d=DB.dialog.find(x=>x.id===i.dialogId);
+  showModal(`Maklum Balas — ${ppdName(i.ppdId)} · Minggu ${d?mingguRekod(d):"?"}`,
+    `<div style="background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#7a5c08">
+       <b>Isu (luar kawalan KPPD):</b> ${i.penerangan||"—"}<br>
+       <b>Tindakan PPD:</b> ${i.tindakan||"—"}${i.sektorPegawai?`<br><b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:""}
+     </div>
+     <div class="form-field"><label>Maklum Balas / Arahan JPN <span class="req">*</span></label>
+     <textarea id="mbInput" placeholder="Nyatakan penyelarasan atau arahan JPN bagi perkara ini..." style="min-height:110px"></textarea></div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">Batal</button>
-     <button class="btn btn-navy" onclick="saveFeedback('${dialogId}')">Hantar Maklum Balas</button>`);
+     <button class="btn btn-navy" onclick="saveFeedback('${isuId}')">Hantar Maklum Balas</button>`);
 }
-function saveFeedback(dialogId){
+function saveFeedback(isuId){
   const v=$("#mbInput").value.trim();
-  if(!v){toast("Sila tulis komen dahulu");return;}
+  if(!v){toast("Sila tulis maklum balas dahulu");return;}
+  const isu=DB.isu.find(x=>x.id===isuId);
+  const dialogId=isu?isu.dialogId:"";
+  if(!mulaProses("Menghantar maklum balas…")) return;
   if(!CONFIG.DEMO_MODE){
-    (async()=>{try{await apiPost("addFeedback",{dialogId,isuId:null,komen:v,oleh:SESSION.nama});
-      await refreshData();closeModal();renderMBList();toast("Maklum balas dihantar");
-    }catch(err){toast(err.message||"Gagal menghantar");}})();
+    (async()=>{try{await apiPost("addFeedback",{dialogId,isuId,komen:v,oleh:SESSION.nama});
+      await refreshData();closeModal();buildSidebar();renderMBList();toast("Maklum balas dihantar");
+    }catch(err){toast(err.message||"Gagal menghantar");}
+    finally{tamatProses();}})();
     return;
   }
-  DB.maklumBalas.push({id:"FB"+Date.now(),dialogId,isuId:null,komen:v,oleh:SESSION.nama,tarikh:"2026-08-09"});
-  closeModal();renderMBList();toast("Maklum balas dihantar");
+  DB.maklumBalas.push({id:"FB"+Date.now(),dialogId,isuId,komen:v,oleh:SESSION.nama,tarikh:todayISO()});
+  tamatProses();
+  closeModal();buildSidebar();renderMBList();toast("Maklum balas dihantar");
 }
 
 /* ============================================================
@@ -2286,14 +2336,18 @@ function renderRekod(){
         ${i.perluTindakSusul?'<span class="badge b-progress">Perlu Tindak Susul</span>':''}
         ${ts?statusBadge(ts.status):''}</div>
         <div class="di-desc">${i.penerangan}</div>
-        ${i.tindakan?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px"><b>Tindakan:</b> ${i.tindakan}${i.sektorPegawai?` · <b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:''}</div>`:''}</div>`;
+        ${i.tindakan?`<div style="font-size:12.5px;color:var(--muted);margin-top:4px"><b>Tindakan:</b> ${i.tindakan}${i.sektorPegawai?` · <b>Sektor/Pegawai:</b> ${i.sektorPegawai}`:''}</div>`:''}
+        ${fbBagiIsu(i.id).map(f=>`<div class="fb-item" style="margin-top:8px">
+            <div class="fb-meta">Maklum Balas JPN · <b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div>
+            <div class="fb-text">${f.komen}</div></div>`).join("")}</div>`;
     });
     const thumbs=gambarThumbsHtml(d);
     if(thumbs)h+=`<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Lampiran Gambar</div>${thumbs}</div>`;
-    if(fbs.length){
+    const fbsSesi=fbs.filter(f=>!f.isuId);
+    if(fbsSesi.length){
       h+=`<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
         <div style="font-size:12px;font-weight:700;color:var(--brass);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Maklum Balas JPN</div>`;
-      fbs.forEach(f=>h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`);
+      fbsSesi.forEach(f=>h+=`<div class="fb-item"><div class="fb-meta"><b>${f.oleh}</b> · ${fmtDate(f.tarikh)}</div><div class="fb-text">${f.komen}</div></div>`);
       h+=`</div>`;
     }
     h+=`</div></div>`;
