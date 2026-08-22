@@ -1180,6 +1180,7 @@ const NAV = {
     ]},
     {group:"Pentadbiran",items:[
       {id:"maklum-balas",ico:"✎",label:"Maklum Balas"},
+      {id:"rumusan",ico:"✦",label:"Rumusan Eksekutif AI"},
       {id:"admin",ico:"⚙",label:"Panel Admin"},
     ]},
   ],
@@ -1213,7 +1214,7 @@ function navigate(page){
   $("#sidebar").classList.remove("open");
   const R={dashboard:renderDashboard,pematuhan:renderPematuhan,"senarai-isu":renderSenaraiIsu,
     "tindak-susul":renderTindakSusul,"maklum-balas":renderMaklumBalas,admin:renderAdmin,
-    penyelarasan:renderPenyelarasan,"muat-turun":renderMuatTurun,
+    penyelarasan:renderPenyelarasan,"muat-turun":renderMuatTurun,rumusan:renderRumusan,
     borang:renderBorang,rekod:renderRekod,"tindak-susul-ppd":renderTindakSusulPPD};
   (R[page]||(()=>{$("#main").innerHTML="";}))();
   $("#main").scrollTop=0;
@@ -1439,6 +1440,163 @@ function isuPerluMaklumBalas(){
   return isuAktif().filter(i=>(i.kawalanKPPD||"Ya")==="Tidak");
 }
 function fbBagiIsu(isuId){ return DB.maklumBalas.filter(f=>f.isuId===isuId); }
+
+/* ============================================================
+   JPN: RUMUSAN EKSEKUTIF AI (backend GAS + Claude)
+   ============================================================ */
+let RUMUSAN_AI=null, RUMUSAN_META=null, RUMUSAN_FORMAT="struktur";
+
+function renderRumusan(){
+  // senarai minggu dari data sebenar (ikut tarikh sesi)
+  const mgg=[...new Set(dialogAktif(DB.dialog).map(d=>{const i=mingguInfo(d.tarikh);return i?i.tahun+"|"+i.minggu:null;}).filter(Boolean))]
+    .map(x=>x.split("|").map(Number)).sort((a,b)=>b[0]-a[0]||b[1]-a[1]);
+  let h=`<div class="page-head"><div class="eyebrow">Pentadbiran · AI</div>
+    <h2>Rumusan Eksekutif AI</h2>
+    <p>Jana rumusan pintar daripada isu Dialog Prestasi — sedia untuk pembentangan JPN. Dijana oleh Claude.</p></div>`;
+
+  h+=`<div class="card"><div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:end" class="rumusan-kawalan">
+      <div class="form-field" style="margin:0"><label>Skop Minggu</label>
+        <select id="rMinggu">
+          <option value="semua">Semua minggu (terkumpul)</option>
+          ${mgg.map(([t,m])=>`<option value="${t}|${m}">Minggu ${m} / ${t}</option>`).join("")}
+        </select></div>
+      <div class="form-field" style="margin:0"><label>Tapis PPD</label>
+        <select id="rPpd">
+          <option value="semua">Semua PPD</option>
+          <option value="luar">Hanya isu luar kawalan KPPD</option>
+        </select></div>
+      <div class="form-field" style="margin:0"><label>Format</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-ghost btn-sm rfmt active" data-f="struktur" onclick="pilihFormatR('struktur')" style="flex:1">Berstruktur</button>
+          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="naratif" onclick="pilihFormatR('naratif')" style="flex:1">Naratif</button>
+        </div></div>
+    </div>
+    <button class="btn btn-navy" style="margin-top:18px;width:100%;padding:14px" onclick="janaRumusanAI()">
+      <span id="rBtnLabel">✦ Jana Rumusan Eksekutif</span></button>
+    <div style="margin-top:12px;font-size:12.5px;color:var(--muted)">
+      💡 Setiap penjanaan menggunakan Claude AI (kos kecil ~RM0.20). Rumusan adalah cadangan — sila semak sebelum pembentangan rasmi.
+    </div>
+  </div></div>
+  <div id="rumusanOutput" style="margin-top:20px"></div>`;
+  $("#main").innerHTML=h;
+}
+function pilihFormatR(f){
+  RUMUSAN_FORMAT=f;
+  document.querySelectorAll(".rfmt").forEach(b=>{
+    const on=b.dataset.f===f;
+    b.classList.toggle("active",on);
+    b.style.background=on?"var(--aksen-soft, #e1f0ed)":"";
+    b.style.borderColor=on?"var(--navy)":"";
+    b.style.color=on?"var(--navy)":"";
+  });
+}
+
+function janaRumusanAI(){
+  const wkRaw=$("#rMinggu").value;
+  const [tahun,minggu]=wkRaw==="semua"?["","semua"]:wkRaw.split("|");
+  const ppdFilter=$("#rPpd").value;
+
+  if(CONFIG.DEMO_MODE){
+    toast("Mod demo — rumusan AI perlu sambungan backend sebenar");
+    $("#rumusanOutput").innerHTML=`<div class="card"><div class="card-body">
+      <div class="banner" style="margin:0"><span class="b-ico">ℹ</span><div class="banner-text">
+      Dalam mod demo, penjanaan AI tidak tersedia kerana ia memerlukan sambungan ke backend GAS.
+      Selepas sistem di-deploy dengan API key, butang ini akan menjana rumusan sebenar.</div></div>
+    </div></div>`;
+    return;
+  }
+
+  if(!mulaProses("Claude sedang menganalisis isu…","Ini mungkin mengambil 10–20 saat")) return;
+  (async()=>{
+    try{
+      const res=await apiPost("janaRumusan",{
+        peranan:SESSION.peranan, minggu, tahun, ppdFilter, format:RUMUSAN_FORMAT
+      });
+      RUMUSAN_AI=res.rumusan;
+      RUMUSAN_META={skop:res.skop, bilPpd:res.bilPpd, bilIsu:res.bilIsu, tarikh:fmtDate(todayISO())};
+      paparRumusanAI();
+    }catch(err){
+      $("#rumusanOutput").innerHTML=`<div class="card"><div class="card-body">
+        <div style="background:var(--danger-bg);border:1px solid var(--danger);color:#8c2b20;padding:16px;border-radius:10px;font-size:13.5px">
+        ⚠ ${err.message||"Penjanaan gagal. Cuba lagi."}</div></div></div>`;
+    }finally{ tamatProses(); }
+  })();
+}
+
+function paparRumusanAI(){
+  const r=RUMUSAN_AI, m=RUMUSAN_META; let body="";
+  if(r.jenis==="naratif"){
+    body=`<div style="font-size:15px;line-height:1.7">${(r.perenggan||[]).map(p=>`<p style="margin-bottom:12px">${p}</p>`).join("")}</div>`;
+  }else{
+    if(r.gambaran) body+=`<div style="margin-bottom:22px"><div class="eyebrow" style="color:var(--brass)">Gambaran Keseluruhan</div>
+      <p style="font-size:15px;margin-top:8px">${r.gambaran}</p></div>`;
+    if(r.tema&&r.tema.length){ body+=`<div style="margin-bottom:22px"><div class="eyebrow" style="color:var(--brass)">Tema Utama Merentas Daerah</div>`;
+      r.tema.forEach(t=>body+=`<div style="background:var(--bg);border-left:4px solid var(--navy);border-radius:10px;padding:14px 16px;margin-top:10px">
+        <b style="color:var(--navy)">${t.nama}</b> <span class="badge b-cat">${t.bil} isu</span>
+        <div style="font-size:13.5px;color:var(--muted);margin-top:5px">${t.huraian}</div></div>`); body+=`</div>`; }
+    if(r.kritikal&&r.kritikal.length){ body+=`<div style="margin-bottom:22px"><div class="eyebrow" style="color:var(--danger)">Isu Kritikal — Perhatian Segera JPN</div>`;
+      r.kritikal.forEach(k=>body+=`<div style="background:var(--danger-bg);border-left:4px solid var(--danger);border-radius:10px;padding:14px 16px;margin-top:10px">
+        <b style="color:var(--danger)">⚠ ${k.tajuk}</b>
+        <div style="font-size:13.5px;color:#6a3a34;margin-top:5px">${k.huraian}</div></div>`); body+=`</div>`; }
+    if(r.cadangan&&r.cadangan.length){ body+=`<div><div class="eyebrow" style="color:var(--brass)">Cadangan Tindakan JPN</div>
+      <ul style="margin:10px 0 0 0;padding:0;list-style:none">
+      ${r.cadangan.map(c=>`<li style="position:relative;padding-left:22px;margin-bottom:10px;font-size:14px">
+        <span style="position:absolute;left:2px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--navy)"></span>${c}</li>`).join("")}
+      </ul></div>`; }
+  }
+  $("#rumusanOutput").innerHTML=`<div class="card">
+    <div class="card-head" style="background:var(--brass-soft, #f3ecd9);border-bottom:2px solid var(--brass)">
+      <div><h3 style="font-size:18px">${r.tajuk||"Rumusan Eksekutif Dialog Prestasi"}</h3>
+        <div class="sub">${m.skop} · ${m.bilPpd} PPD · ${m.bilIsu} isu · Dijana ${m.tarikh}</div></div>
+      <button class="btn btn-brass btn-sm" onclick="muatTurunRumusanPDF()">⬇ Muat Turun PDF</button>
+    </div>
+    <div class="card-body">${body}
+      <div style="margin-top:20px;padding:12px 15px;background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;font-size:12px;color:#7a5c08">
+      ✦ Rumusan ini dijana oleh AI (Claude). Sila semak & sunting mengikut pertimbangan pengurusan sebelum pembentangan rasmi.</div>
+    </div></div>`;
+  $("#rumusanOutput").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function muatTurunRumusanPDF(){
+  if(!RUMUSAN_AI) return;
+  if(!window.jspdf||!window.jspdf.jsPDF){toast("Pustaka PDF belum dimuat — cuba semula");return;}
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const r=RUMUSAN_AI, m=RUMUSAN_META;
+  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight(), M=18;
+  const NAVY=[14,58,62], BRASS=[200,155,60], INK=[26,42,42], MUTED=[99,117,122];
+  let y=0;
+  doc.setFillColor(...NAVY); doc.rect(0,0,W,32,"F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("JABATAN PENDIDIKAN NEGERI KEDAH · SEKTOR S4PD",M,13);
+  doc.setFontSize(15); doc.text("Rumusan Eksekutif Dialog Prestasi",M,23);
+  y=44; doc.setTextColor(...MUTED); doc.setFont("helvetica","normal"); doc.setFontSize(9.5);
+  doc.text(`${m.skop}  ·  ${m.bilPpd} PPD  ·  ${m.bilIsu} isu  ·  Dijana ${m.tarikh}`,M,y);
+  y+=6; doc.setDrawColor(...BRASS); doc.setLineWidth(.6); doc.line(M,y,W-M,y); y+=10;
+  function seksyen(t){ if(y>H-30){doc.addPage();y=20;} doc.setTextColor(...BRASS);doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.text(t.toUpperCase(),M,y);y+=6; }
+  function pgh(txt,size,gap){ doc.setTextColor(...INK);doc.setFont("helvetica","normal");doc.setFontSize(size||11);
+    doc.splitTextToSize(txt,W-2*M).forEach(ln=>{if(y>H-20){doc.addPage();y=20;}doc.text(ln,M,y);y+=size?size*0.52:5.6;}); y+=(gap||4); }
+  if(r.jenis==="naratif"){
+    doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...NAVY);
+    if(r.tajuk){doc.splitTextToSize(r.tajuk,W-2*M).forEach(ln=>{doc.text(ln,M,y);y+=7;});y+=3;}
+    (r.perenggan||[]).forEach(p=>pgh(p,11,5));
+  }else{
+    if(r.gambaran){seksyen("Gambaran Keseluruhan");pgh(r.gambaran,11,7);}
+    if(r.tema&&r.tema.length){seksyen("Tema Utama Merentas Daerah");
+      r.tema.forEach(t=>{if(y>H-28){doc.addPage();y=20;}doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...NAVY);
+        doc.text(`${t.nama}  (${t.bil} isu)`,M,y);y+=5.5;pgh(t.huraian,10,4);});y+=3;}
+    if(r.kritikal&&r.kritikal.length){seksyen("Isu Kritikal — Perhatian Segera JPN");
+      r.kritikal.forEach(k=>{if(y>H-28){doc.addPage();y=20;}doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(192,57,43);
+        doc.splitTextToSize("• "+k.tajuk,W-2*M).forEach(ln=>{doc.text(ln,M,y);y+=5.5;});pgh(k.huraian,10,4);});y+=3;}
+    if(r.cadangan&&r.cadangan.length){seksyen("Cadangan Tindakan JPN");
+      r.cadangan.forEach((c,i)=>{if(y>H-22){doc.addPage();y=20;}doc.setTextColor(...INK);doc.setFont("helvetica","normal");doc.setFontSize(11);
+        doc.splitTextToSize(`${i+1}.  ${c}`,W-2*M-4).forEach((ln,idx)=>{doc.text(ln,M+(idx?6:0),y);y+=5.6;});y+=2;});}
+  }
+  doc.setTextColor(...MUTED);doc.setFontSize(8);
+  doc.text("Dijana oleh AI (Claude) · Sila semak sebelum pembentangan rasmi · Sistem Dialog Prestasi PPD, JPN Kedah",W/2,H-8,{align:"center"});
+  doc.save(`Rumusan_Eksekutif_${(m.skop||"").replace(/[^a-zA-Z0-9]/g,"_").slice(0,30)}.pdf`);
+}
 
 function renderMaklumBalas(){
   let h=`<div class="page-head"><div class="eyebrow">Pentadbiran</div><h2>Maklum Balas kepada PPD</h2>
