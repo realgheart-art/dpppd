@@ -1552,6 +1552,15 @@ function paparRumusanAI(){
       r.kritikal.forEach(k=>body+=`<div style="background:var(--danger-bg);border-left:4px solid var(--danger);border-radius:10px;padding:14px 16px;margin-top:10px">
         <b style="color:var(--danger)">⚠ ${k.tajuk}</b>
         <div style="font-size:13.5px;color:#6a3a34;margin-top:5px">${k.huraian}</div></div>`); body+=`</div>`; }
+    if(r.penyelarasan&&r.penyelarasan.length){ body+=`<div style="margin-bottom:22px"><div class="eyebrow" style="color:var(--aksen, #2e7d74)">Status Penyelarasan JPN — Isu Luar Kawalan KPPD</div>`;
+      r.penyelarasan.forEach(pn=>{
+        const sudah=/sudah|selesai|dimaklum/i.test(pn.status||"");
+        const warna=sudah?"var(--ok, #1f8a4c)":"var(--brass)";
+        const bg=sudah?"var(--ok-bg, #e4f4ea)":"var(--warn-bg, #fbf3dd)";
+        body+=`<div style="background:${bg};border-left:4px solid ${warna};border-radius:10px;padding:14px 16px;margin-top:10px">
+          <b style="color:var(--navy)">${pn.tajuk}</b> <span class="badge" style="background:${warna};color:#fff;font-size:10.5px">${pn.status||""}</span>
+          <div style="font-size:13.5px;color:#2a3a3a;margin-top:5px">${pn.huraian||""}</div></div>`;
+      }); body+=`</div>`; }
     if(r.cadangan&&r.cadangan.length){ body+=`<div><div class="eyebrow" style="color:var(--brass)">Cadangan Tindakan JPN</div>
       <ul style="margin:10px 0 0 0;padding:0;list-style:none">
       ${r.cadangan.map(c=>`<li style="position:relative;padding-left:22px;margin-bottom:10px;font-size:14px">
@@ -1605,6 +1614,12 @@ function muatTurunRumusanPDF(){
     if(r.kritikal&&r.kritikal.length){seksyen("Isu Kritikal — Perhatian Segera JPN");
       r.kritikal.forEach(k=>{if(y>H-28){doc.addPage();y=20;}doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(192,57,43);
         doc.splitTextToSize("• "+k.tajuk,W-2*M).forEach(ln=>{doc.text(ln,M,y);y+=5.5;});pgh(k.huraian,10,4);});y+=3;}
+    if(r.penyelarasan&&r.penyelarasan.length){seksyen("Status Penyelarasan JPN — Isu Luar Kawalan KPPD");
+      r.penyelarasan.forEach(pn=>{if(y>H-28){doc.addPage();y=20;}
+        var sudah=/sudah|selesai|dimaklum/i.test(pn.status||"");
+        doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...(sudah?[31,138,76]:NAVY));
+        doc.splitTextToSize("• "+pn.tajuk+"  ["+(pn.status||"")+"]",W-2*M).forEach(ln=>{doc.text(ln,M,y);y+=5.5;});
+        pgh(pn.huraian||"",10,4);});y+=3;}
     if(r.cadangan&&r.cadangan.length){seksyen("Cadangan Tindakan JPN");
       r.cadangan.forEach((c,i)=>{if(y>H-22){doc.addPage();y=20;}doc.setTextColor(...INK);doc.setFont("helvetica","normal");doc.setFontSize(11);
         doc.splitTextToSize(`${i+1}.  ${c}`,W-2*M-4).forEach((ln,idx)=>{doc.text(ln,M+(idx?6:0),y);y+=5.6;});y+=2;});}
