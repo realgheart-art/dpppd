@@ -1467,9 +1467,10 @@ function renderRumusan(){
           <option value="luar">Hanya isu luar kawalan KPPD</option>
         </select></div>
       <div class="form-field" style="margin:0"><label>Format</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" class="btn btn-ghost btn-sm rfmt active" data-f="struktur" onclick="pilihFormatR('struktur')" style="flex:1">Berstruktur</button>
-          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="naratif" onclick="pilihFormatR('naratif')" style="flex:1">Naratif</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost btn-sm rfmt active" data-f="struktur" onclick="pilihFormatR('struktur')" style="flex:1;min-width:90px">Berstruktur</button>
+          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="naratif" onclick="pilihFormatR('naratif')" style="flex:1;min-width:90px">Naratif</button>
+          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="pembentangan" onclick="pilihFormatR('pembentangan')" style="flex:1;min-width:90px">Pembentangan</button>
         </div></div>
     </div>
     <button class="btn btn-navy" style="margin-top:18px;width:100%;padding:14px" onclick="janaRumusanAI()">
@@ -1528,6 +1529,18 @@ function paparRumusanAI(){
   const r=RUMUSAN_AI, m=RUMUSAN_META; let body="";
   if(r.jenis==="naratif"){
     body=`<div style="font-size:15px;line-height:1.7">${(r.perenggan||[]).map(p=>`<p style="margin-bottom:12px">${p}</p>`).join("")}</div>`;
+  }else if(r.jenis==="pembentangan"){
+    body=`<div class="eyebrow" style="color:var(--brass);margin-bottom:14px">Rangka Slaid Pembentangan · ${(r.slaid||[]).length} slaid</div>`;
+    (r.slaid||[]).forEach((s,idx)=>{
+      body+=`<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 3px rgba(14,58,62,.06)">
+        <div style="background:var(--navy);color:#fff;padding:11px 16px;display:flex;align-items:center;gap:10px">
+          <span style="background:var(--brass);color:var(--navy);width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:none">${idx+1}</span>
+          <b style="font-size:14.5px">${s.tajuk||""}</b></div>
+        <ul style="margin:0;padding:14px 18px 14px 18px;list-style:none">
+          ${(s.poin||[]).map(p=>`<li style="position:relative;padding-left:20px;margin-bottom:8px;font-size:13.5px;color:#2a3a3a">
+            <span style="position:absolute;left:2px;top:8px;width:6px;height:6px;border-radius:50%;background:var(--aksen, #2e7d74)"></span>${p}</li>`).join("")}
+        </ul></div>`;
+    });
   }else{
     if(r.gambaran) body+=`<div style="margin-bottom:22px"><div class="eyebrow" style="color:var(--brass)">Gambaran Keseluruhan</div>
       <p style="font-size:15px;margin-top:8px">${r.gambaran}</p></div>`;
@@ -1545,11 +1558,14 @@ function paparRumusanAI(){
         <span style="position:absolute;left:2px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--navy)"></span>${c}</li>`).join("")}
       </ul></div>`; }
   }
+  const btnMuatTurun = r.jenis==="pembentangan"
+    ? `<button class="btn btn-brass btn-sm" onclick="muatTurunRumusanPPTX()">⬇ Muat Turun PowerPoint</button>`
+    : `<button class="btn btn-brass btn-sm" onclick="muatTurunRumusanPDF()">⬇ Muat Turun PDF</button>`;
   $("#rumusanOutput").innerHTML=`<div class="card">
     <div class="card-head" style="background:var(--brass-soft, #f3ecd9);border-bottom:2px solid var(--brass)">
       <div><h3 style="font-size:18px">${r.tajuk||"Rumusan Eksekutif Dialog Prestasi"}</h3>
         <div class="sub">${m.skop} · ${m.bilPpd} PPD · ${m.bilIsu} isu · Dijana ${m.tarikh}</div></div>
-      <button class="btn btn-brass btn-sm" onclick="muatTurunRumusanPDF()">⬇ Muat Turun PDF</button>
+      ${btnMuatTurun}
     </div>
     <div class="card-body">${body}
       <div style="margin-top:20px;padding:12px 15px;background:var(--warn-bg);border:1px solid var(--brass);border-radius:10px;font-size:12px;color:#7a5c08">
@@ -1596,6 +1612,66 @@ function muatTurunRumusanPDF(){
   doc.setTextColor(...MUTED);doc.setFontSize(8);
   doc.text("Dijana oleh AI (Claude) · Sila semak sebelum pembentangan rasmi · Sistem Dialog Prestasi PPD, JPN Kedah",W/2,H-8,{align:"center"});
   doc.save(`Rumusan_Eksekutif_${(m.skop||"").replace(/[^a-zA-Z0-9]/g,"_").slice(0,30)}.pdf`);
+}
+
+/* Muat pustaka PptxGenJS atas permintaan */
+function muatPptxLib(){
+  return new Promise((resolve,reject)=>{
+    if(window.PptxGenJS){ resolve(); return; }
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js";
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error("Gagal memuat pustaka PowerPoint"));
+    document.head.appendChild(s);
+  });
+}
+
+async function muatTurunRumusanPPTX(){
+  if(!RUMUSAN_AI||RUMUSAN_AI.jenis!=="pembentangan") return;
+  const btn=event&&event.target?event.target:null;
+  if(btn){ btn.disabled=true; btn.textContent="⟳ Menyedia…"; }
+  try{
+    await muatPptxLib();
+    const r=RUMUSAN_AI, m=RUMUSAN_META;
+    const NAVY="0E3A3E", BRASS="C89B3C", INK="1A2A2A", MUTED="63757A", BG="F5F8F7", WHITE="FFFFFF";
+    const pptx=new PptxGenJS();
+    pptx.defineLayout({name:"W",width:13.333,height:7.5});
+    pptx.layout="W";
+    pptx.author="Sistem Dialog Prestasi PPD"; pptx.company="JPN Kedah · Sektor S4PD";
+
+    // ---- Slaid tajuk ----
+    const s0=pptx.addSlide(); s0.background={color:NAVY};
+    s0.addShape(pptx.ShapeType.rect,{x:0,y:3.05,w:13.333,h:0.06,fill:{color:BRASS}});
+    s0.addText("JABATAN PENDIDIKAN NEGERI KEDAH · SEKTOR S4PD",
+      {x:0.8,y:2.1,w:11.7,h:0.5,fontFace:"Arial",fontSize:14,color:BRASS,bold:true,charSpacing:2});
+    s0.addText(r.tajuk||"Rumusan Eksekutif Dialog Prestasi",
+      {x:0.8,y:2.6,w:11.7,h:1.6,fontFace:"Georgia",fontSize:34,color:WHITE,bold:true,valign:"top"});
+    s0.addText(`${m.skop}  ·  ${m.bilPpd} PPD  ·  ${m.bilIsu} isu  ·  ${m.tarikh}`,
+      {x:0.8,y:4.35,w:11.7,h:0.5,fontFace:"Arial",fontSize:13,color:"CFE0DD"});
+
+    // ---- Slaid kandungan ----
+    (r.slaid||[]).forEach((sl)=>{
+      const s=pptx.addSlide(); s.background={color:WHITE};
+      // jalur tajuk
+      s.addShape(pptx.ShapeType.rect,{x:0,y:0,w:13.333,h:1.15,fill:{color:NAVY}});
+      s.addShape(pptx.ShapeType.rect,{x:0,y:1.15,w:13.333,h:0.05,fill:{color:BRASS}});
+      s.addText(sl.tajuk||"",
+        {x:0.7,y:0,w:12,h:1.15,fontFace:"Georgia",fontSize:24,color:WHITE,bold:true,valign:"middle"});
+      // poin
+      const poin=(sl.poin||[]).map(p=>({text:p,options:{bullet:{code:"2022",indent:20},color:INK,fontSize:18,paraSpaceAfter:10,fontFace:"Arial"}}));
+      s.addText(poin.length?poin:[{text:"—",options:{color:MUTED}}],
+        {x:0.9,y:1.6,w:11.5,h:5.2,valign:"top"});
+      // kaki
+      s.addText("Dijana oleh AI (Claude) · Sila semak sebelum pembentangan rasmi",
+        {x:0.5,y:7.0,w:12.3,h:0.35,fontFace:"Arial",fontSize:9,color:MUTED,align:"center"});
+    });
+
+    await pptx.writeFile({fileName:`Pembentangan_DP_PPD_${(m.skop||"").replace(/[^a-zA-Z0-9]/g,"_").slice(0,30)}.pptx`});
+  }catch(err){
+    toast("Gagal jana PowerPoint: "+(err.message||err));
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent="⬇ Muat Turun PowerPoint"; }
+  }
 }
 
 function renderMaklumBalas(){
