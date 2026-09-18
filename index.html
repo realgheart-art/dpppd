@@ -325,7 +325,7 @@ tbody tr:last-child td{border-bottom:none}
    ============================================================ */
 const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbzqDiZkWMCX_aHUzWb8Ut1ktejj0rvueHFZWJFDRjGFbYMCQvhDWYR2FlIIP2aawuD-Jg/exec", // ← ganti selepas deploy GAS
-  DEMO_MODE: false,   // true = guna data terbenam di bawah (tiada backend perlu)
+  DEMO_MODE: true,   // true = guna data terbenam di bawah (tiada backend perlu)
 };
 
 /* ============================================================
@@ -647,7 +647,7 @@ function adakahLewat(tarikhSesi, tarikhHantar){
 /* Laporan aktif sedia ada bagi PPD pada minggu tertentu */
 function laporanMingguSedia(ppdId, minggu, tahun, kecualiId){
   return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,minggu)
-    &&Number(tahunRekod(d))===Number(tahun)&&!isDibatalkan(d)&&!isTangguh(d)&&d.id!==kecualiId)||null;
+    &&Number(tahunRekod(d))===Number(tahun)&&!isDibatalkan(d)&&!isTangguh(d)&&!isDraf(d)&&d.id!==kecualiId)||null;
 }
 function latestWeekTarikh(){ // tarikh bagi LATEST_WEEK; jika tiada data, guna hari ini
   const w=DB.weeks.find(x=>x.no===LATEST_WEEK);
@@ -1455,23 +1455,29 @@ function renderRumusan(){
     <p>Jana rumusan pintar daripada isu Dialog Prestasi — sedia untuk pembentangan JPN. Dijana oleh Claude.</p></div>`;
 
   h+=`<div class="card"><div class="card-body">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:end" class="rumusan-kawalan">
-      <div class="form-field" style="margin:0"><label>Skop Minggu</label>
-        <select id="rMinggu">
-          <option value="semua">Semua minggu (terkumpul)</option>
-          ${mgg.map(([t,m])=>`<option value="${t}|${m}">Minggu ${m} / ${t}</option>`).join("")}
-        </select></div>
-      <div class="form-field" style="margin:0"><label>Tapis PPD</label>
-        <select id="rPpd">
-          <option value="semua">Semua PPD</option>
-          <option value="luar">Hanya isu luar kawalan KPPD</option>
-        </select></div>
-      <div class="form-field" style="margin:0"><label>Format</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn btn-ghost btn-sm rfmt active" data-f="struktur" onclick="pilihFormatR('struktur')" style="flex:1;min-width:90px">Berstruktur</button>
-          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="naratif" onclick="pilihFormatR('naratif')" style="flex:1;min-width:90px">Naratif</button>
-          <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="pembentangan" onclick="pilihFormatR('pembentangan')" style="flex:1;min-width:90px">Pembentangan</button>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start" class="rumusan-kawalan">
+      <div class="form-field" style="margin:0"><label>Skop Minggu <span style="font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0">(tick untuk pilih)</span></label>
+        <div id="rMingguBox" style="border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;max-height:180px;overflow-y:auto;background:#fbfcfc">
+          <label style="display:flex;align-items:center;gap:9px;padding:6px 4px;cursor:pointer;font-size:13.5px;border-bottom:1px solid var(--line)">
+            <input type="checkbox" id="rmSemua" checked onchange="togolSemuaMinggu()" style="width:16px;height:16px;accent-color:var(--navy)">
+            <b>Semua minggu (terkumpul)</b></label>
+          ${mgg.map(([t,m])=>`<label style="display:flex;align-items:center;gap:9px;padding:6px 4px;cursor:pointer;font-size:13.5px">
+            <input type="checkbox" class="rmMinggu" value="${t}|${m}" onchange="mingguBerubah()" style="width:16px;height:16px;accent-color:var(--navy)">
+            Minggu ${m} / ${t}</label>`).join("")}
         </div></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="form-field" style="margin:0"><label>Tapis PPD</label>
+          <select id="rPpd">
+            <option value="semua">Semua PPD</option>
+            <option value="luar">Hanya isu luar kawalan KPPD</option>
+          </select></div>
+        <div class="form-field" style="margin:0"><label>Format</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-sm rfmt active" data-f="struktur" onclick="pilihFormatR('struktur')" style="flex:1;min-width:88px">Berstruktur</button>
+            <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="naratif" onclick="pilihFormatR('naratif')" style="flex:1;min-width:88px">Naratif</button>
+            <button type="button" class="btn btn-ghost btn-sm rfmt" data-f="pembentangan" onclick="pilihFormatR('pembentangan')" style="flex:1;min-width:88px">Pembentangan</button>
+          </div></div>
+      </div>
     </div>
     <button class="btn btn-navy" style="margin-top:18px;width:100%;padding:14px" onclick="janaRumusanAI()">
       <span id="rBtnLabel">✦ Jana Rumusan Eksekutif</span></button>
@@ -1481,6 +1487,19 @@ function renderRumusan(){
   </div></div>
   <div id="rumusanOutput" style="margin-top:20px"></div>`;
   $("#main").innerHTML=h;
+}
+
+/* Kawalan checkbox minggu */
+function togolSemuaMinggu(){
+  const semua=$("#rmSemua").checked;
+  if(semua){ document.querySelectorAll(".rmMinggu").forEach(c=>c.checked=false); }
+  // jika "Semua" dinyahtick tetapi tiada minggu lain dipilih, tick semula "Semua"
+  else if(!document.querySelector(".rmMinggu:checked")){ $("#rmSemua").checked=true; }
+}
+function mingguBerubah(){
+  const adaPilih=!!document.querySelector(".rmMinggu:checked");
+  // jika ada minggu tertentu dipilih, nyahtick "Semua"; jika tiada, tick "Semua"
+  $("#rmSemua").checked=!adaPilih;
 }
 function pilihFormatR(f){
   RUMUSAN_FORMAT=f;
@@ -1494,9 +1513,10 @@ function pilihFormatR(f){
 }
 
 function janaRumusanAI(){
-  const wkRaw=$("#rMinggu").value;
-  const [tahun,minggu]=wkRaw==="semua"?["","semua"]:wkRaw.split("|");
-  const ppdFilter=$("#rPpd").value;
+  // kumpul minggu terpilih (checkbox)
+  const semua=$("#rmSemua") && $("#rmSemua").checked;
+  const dipilih=[...document.querySelectorAll(".rmMinggu:checked")].map(c=>c.value); // ["tahun|minggu", ...]
+  const mingguList = (semua || !dipilih.length) ? "semua" : dipilih;
 
   if(CONFIG.DEMO_MODE){
     toast("Mod demo — rumusan AI perlu sambungan backend sebenar");
@@ -1512,7 +1532,7 @@ function janaRumusanAI(){
   (async()=>{
     try{
       const res=await apiPost("janaRumusan",{
-        peranan:SESSION.peranan, minggu, tahun, ppdFilter, format:RUMUSAN_FORMAT
+        peranan:SESSION.peranan, mingguList:JSON.stringify(mingguList), ppdFilter:$("#rPpd").value, format:RUMUSAN_FORMAT
       });
       RUMUSAN_AI=res.rumusan;
       RUMUSAN_META={skop:res.skop, bilPpd:res.bilPpd, bilIsu:res.bilIsu, tarikh:fmtDate(todayISO())};
@@ -1885,7 +1905,7 @@ function tandaPengarah(dialogId){
   buildSidebar();renderPenyelarasan();toast("Laporan ditanda dihantar kepada Pengarah");
 }
 function tandaSemuaPengarah(){
-  const senarai=DB.dialog.filter(d=>padanMinggu(d,LATEST_WEEK)&&!d.dihantarKePengarah&&!isDibatalkan(d)&&!isTangguh(d));
+  const senarai=DB.dialog.filter(d=>padanMinggu(d,LATEST_WEEK)&&!d.dihantarKePengarah&&!isDibatalkan(d)&&!isTangguh(d)&&!isDraf(d));
   if(!senarai.length){toast("Tiada laporan menunggu penghantaran");return;}
   if(!CONFIG.DEMO_MODE){
     (async()=>{try{
@@ -2090,8 +2110,9 @@ let issueCount=0;
 let EDIT_ID=null; // jika tidak null, borang dalam mod kemaskini
 const isDibatalkan=(d)=>String(d.status||"").toLowerCase()==="dibatalkan";
 const isTangguh=(d)=>String(d.status||"").toLowerCase()==="ditangguh";
+const isDraf=(d)=>String(d.status||"").toLowerCase()==="draf";
 /* laporan sebenar sahaja — tidak termasuk rekod dibatalkan / ditangguh */
-const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d)&&!isTangguh(d));
+const dialogAktif=(list)=>list.filter(d=>!isDibatalkan(d)&&!isTangguh(d)&&!isDraf(d));
 /* Minggu & tahun SEBENAR bagi satu rekod — sentiasa dikira daripada TARIKH SESI.
    Rekod lama mungkin menyimpan MingguKe yang dikira semasa hantar; ini mengatasinya. */
 function mingguRekod(d){
@@ -2107,6 +2128,12 @@ const padanMinggu=(d,wk)=>Number(mingguRekod(d))===Number(wk);
 function tangguhBagi(ppdId,wk){
   return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)&&isTangguh(d))||null;
 }
+let DRAF_SEMASA=null;
+/* draf tersimpan bagi PPD pada minggu tertentu */
+function drafBagi(ppdId,wk,tahun){
+  return DB.dialog.find(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)
+    &&Number(tahunRekod(d))===Number(tahun)&&isDraf(d))||null;
+}
 function ppdTangguhMinggu(wk){
   const sah=new Set(DB.ppd.map(x=>normId(x.id)));
   const set=new Set();
@@ -2119,7 +2146,7 @@ function ppdHantarMinggu(wk){
   const set=new Set();
   DB.dialog.forEach(d=>{
     if(!padanMinggu(d,wk)) return;
-    if(isDibatalkan(d)||isTangguh(d)) return;
+    if(isDibatalkan(d)||isTangguh(d)||isDraf(d)) return;
     const id=normId(d.ppdId);
     if(sah.has(id)) set.add(id);
   });
@@ -2127,7 +2154,7 @@ function ppdHantarMinggu(wk){
 }
 /* laporan aktif terkini bagi satu PPD/minggu (jika ada pendua, ambil yang terbaru) */
 function dialogTerkini(ppdId,wk){
-  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)&&!isDibatalkan(d)&&!isTangguh(d));
+  const senarai=DB.dialog.filter(d=>samePpd(d.ppdId,ppdId)&&padanMinggu(d,wk)&&!isDibatalkan(d)&&!isTangguh(d)&&!isDraf(d));
   if(!senarai.length) return null;
   return senarai.sort((a,b)=>String(b.tarikhSubmit||'').localeCompare(String(a.tarikhSubmit||'')))[0];
 }
@@ -2135,7 +2162,7 @@ function dialogTerkini(ppdId,wk){
 function penduaMinggu(wk){
   const kira={};
   DB.dialog.forEach(d=>{
-    if(!padanMinggu(d,wk)||isDibatalkan(d)||isTangguh(d)) return;
+    if(!padanMinggu(d,wk)||isDibatalkan(d)||isTangguh(d)||isDraf(d)) return;
     const id=normId(d.ppdId); kira[id]=(kira[id]||0)+1;
   });
   return Object.keys(kira).filter(k=>kira[k]>1).map(k=>ppdName(k));
@@ -2149,6 +2176,9 @@ function renderBorang(){
   const infoKini = mingguInfo(todayISO());
   const alreadySubmitted = (editing||PAKSA_BARU) ? null : laporanMingguSedia(SESSION.ppdId, infoKini.minggu, infoKini.tahun);
   const rekodTangguh = editing ? null : tangguhBagi(SESSION.ppdId, infoKini.minggu);
+  const draf = (editing||PAKSA_BARU||alreadySubmitted) ? null : drafBagi(SESSION.ppdId, infoKini.minggu, infoKini.tahun);
+  const src = editing || draf;   // sumber auto-isi borang (edit atau draf tersimpan)
+  DRAF_SEMASA = draf ? draf.id : null;
 
   let h=`<div class="page-head"><div class="eyebrow">${ppdName(SESSION.ppdId)}</div>
     <h2>${editing?"Kemaskini Laporan Dialog Prestasi":"Hantar Laporan Dialog Prestasi"}</h2>
@@ -2175,6 +2205,10 @@ function renderBorang(){
     h+=`<div class="banner"><span class="b-ico">✎</span><div class="banner-text">
       <b>Mod Kemaskini.</b> Anda sedang mengemaskini laporan Minggu ${editing.minggu}. Perubahan akan menggantikan rekod sedia ada.</div>
       <button class="btn btn-ghost btn-sm" onclick="batalKemaskini()">Batal</button></div>`;
+  }else if(draf){
+    h+=`<div class="banner"><span class="b-ico">💾</span><div class="banner-text">
+      <b>Draf dimuat.</b> Borang ini diisi semula daripada draf tersimpan (disimpan ${fmtDate(draf.tarikhSubmit)}). Sambung mengisi, kemudian <b>Hantar Laporan</b> apabila lengkap.</div>
+      <button class="btn btn-ghost btn-sm" onclick="buangDraf('${draf.id}')">🗑 Buang Draf</button></div>`;
   }else{
     h+=`<div class="banner"><span class="b-ico">⏰</span><div class="banner-text">
       <b>Peringatan:</b> Laporan Minggu ${infoKini.minggu} belum dihantar.
@@ -2183,13 +2217,13 @@ function renderBorang(){
       ${rekodTangguh?"":`<button class="btn btn-ghost btn-sm" onclick="mintaTangguh()">↷ Tangguh ke Minggu Hadapan</button>`}</div>`;
   }
 
-  const tarikhDefault = editing ? editing.tarikh : latestWeekTarikh();
+  const tarikhDefault = src ? src.tarikh : latestWeekTarikh();
   const val=(v)=>v?String(v).replace(/"/g,"&quot;"):"";
   h+=`<div class="card"><div class="card-head"><h3>Butiran Sesi</h3>
     <div class="sub">Mengikut format rasmi LAMPIRAN A (DP PPD)</div></div><div class="card-body">
     <div class="form-row">
       <div class="form-field"><label>Pengerusi <span class="req">*</span></label>
-        <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah" value="${editing?val(editing.pengerusi):""}"></div>
+        <input id="dPengerusi" type="text" placeholder="cth: Pegawai Pendidikan Daerah" value="${src?val(src.pengerusi):""}"></div>
       <div class="form-field"><label>Tarikh Sesi <span class="req">*</span></label>
         <input id="dTarikh" type="date" value="${tarikhDefault}" onchange="updateHari()">
         <div class="help" id="infoMinggu"></div></div>
@@ -2198,15 +2232,15 @@ function renderBorang(){
       <div class="form-field"><label>Hari</label>
         <input id="dHari" type="text" value="${hariMelayu(tarikhDefault)}" readonly style="background:#f2f4f6"></div>
       <div class="form-field"><label>Masa</label>
-        <input id="dMasa" type="text" placeholder="cth: 9:00 pagi" value="${editing?val(editing.masa):""}"></div>
+        <input id="dMasa" type="text" placeholder="cth: 9:00 pagi" value="${src?val(src.masa):""}"></div>
     </div>
     <div class="form-field"><label>Tempat</label>
-      <input id="dTempat" type="text" placeholder="cth: Bilik Mesyuarat Utama PPD" value="${editing?val(editing.tempat):""}"></div>
+      <input id="dTempat" type="text" placeholder="cth: Bilik Mesyuarat Utama PPD" value="${src?val(src.tempat):""}"></div>
     <div class="form-field"><label>Kehadiran</label>
-      <textarea id="dHadir" placeholder="Senaraikan kehadiran — satu nama/jawatan setiap baris" style="min-height:90px">${editing&&Array.isArray(editing.kehadiran)?editing.kehadiran.join("\n"):""}</textarea>
+      <textarea id="dHadir" placeholder="Senaraikan kehadiran — satu nama/jawatan setiap baris" style="min-height:90px">${src&&Array.isArray(src.kehadiran)?src.kehadiran.join("\n"):""}</textarea>
       <div class="help">Satu baris = satu kehadiran (akan disenaraikan a, b, c, d… dalam laporan PDF).</div></div>
     <div class="form-field"><label>Ringkasan Sesi (pilihan)</label>
-      <textarea id="dRingkas" placeholder="Ringkasan umum perbincangan dialog...">${editing?(editing.ringkasan||""):""}</textarea></div>
+      <textarea id="dRingkas" placeholder="Ringkasan umum perbincangan dialog...">${src?(src.ringkasan||""):""}</textarea></div>
   </div></div>`;
 
   h+=`<div class="card"><div class="card-head"><div><h3>Isu dan Tindakan</h3>
@@ -2236,35 +2270,35 @@ function renderBorang(){
   h+=`<div class="card"><div class="card-head"><h3>Pengesahan</h3></div><div class="card-body">
     <div class="form-row">
       <div class="form-field"><label>Dicatat oleh <span class="req">*</span></label>
-        <input id="dDicatat" type="text" placeholder="Nama pencatat laporan" value="${editing?val(editing.dicatatOleh):""}"></div>
+        <input id="dDicatat" type="text" placeholder="Nama pencatat laporan" value="${src?val(src.dicatatOleh):""}"></div>
       <div class="form-field"><label>Disahkan oleh <span class="req">*</span></label>
-        <input id="dDisah" type="text" placeholder="Nama pengesah (cth: PPD)" value="${editing?val(editing.disahkanOleh):""}"></div>
+        <input id="dDisah" type="text" placeholder="Nama pengesah (cth: PPD)" value="${src?val(src.disahkanOleh):""}"></div>
     </div>
   </div></div>`;
 
   h+=`<div class="btn-row" style="margin-top:4px">
     <button class="btn btn-navy" id="btnHantar" onclick="submitDialog()" style="padding:13px 26px">${editing?"Simpan Perubahan":"Hantar Laporan"}</button>
     ${editing?`<button class="btn btn-ghost" onclick="batalKemaskini()">Batal</button>`
-             :`<button class="btn btn-ghost" onclick="toast('Draf disimpan (demo)')">Simpan Draf</button>`}</div>`;
+             :`<button class="btn btn-ghost" id="btnDraf" onclick="simpanDraf()">💾 Simpan Draf</button>`}</div>`;
 
   $("#main").innerHTML=h;
   borangGambar={1:null,2:null};
   issueCount=0;
 
-  if(editing){
-    // muat semula isu sedia ada
-    const isuList=DB.isu.filter(i=>i.dialogId===editing.id);
+  if(src){
+    // muat semula isu sedia ada (dari rekod edit atau draf)
+    const isuList=DB.isu.filter(i=>i.dialogId===src.id);
     if(isuList.length){
       isuList.forEach(i=>addIssue(i));
     }else{addIssue();addIssue();}
     // muat semula gambar sedia ada (papar pratonton)
     [1,2].forEach(slot=>{
-      const raw = slot===1?editing.gambar1:editing.gambar2;
-      const src = gambarSrc(raw);
-      if(src){
+      const raw = slot===1?src.gambar1:src.gambar2;
+      const imgSrc = gambarSrc(raw);
+      if(imgSrc){
         borangGambar[slot] = String(raw).startsWith("data:") ? raw : ("KEEP:"+raw); // KEEP = kekalkan fail Drive asal
         const prev=$("#gprev"+slot), drop=$("#gdrop"+slot);
-        prev.innerHTML=`<img src="${src}" alt="Gambar ${slot}">
+        prev.innerHTML=`<img src="${imgSrc}" alt="Gambar ${slot}">
           <button type="button" class="gambar-remove" onclick="buangGambar(${slot})">✕ Buang</button>`;
         prev.classList.remove("hidden"); drop.classList.add("hidden");
       }
@@ -2485,7 +2519,7 @@ function submitDialog(){
     // ---- MOD LIVE: hantar ke GAS ----
     const payload={ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,hari:$("#dHari").value,
       masa:$("#dMasa").value,tempat:$("#dTempat").value,pengerusi,
-      minggu:info.minggu,tahun:info.tahun,tangguhId:(tg?tg.id:""),
+      minggu:info.minggu,tahun:info.tahun,tangguhId:(tg?tg.id:""),drafId:(DRAF_SEMASA||""),
       kehadiran,ringkasan:$("#dRingkas").value,disubmitOleh:SESSION.nama,dicatatOleh:dicatat,disahkanOleh:disah,
       gambar1:borangGambar[1]||"",gambar2:borangGambar[2]||"",
       issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
@@ -2524,6 +2558,10 @@ function submitDialog(){
     return;
   }
   if(tg) DB.dialog=DB.dialog.filter(d=>d.id!==tg.id);   // buang penangguhan
+  if(DRAF_SEMASA){ const di=DB.isu.filter(i=>i.dialogId===DRAF_SEMASA).map(i=>i.id);
+    DB.tindakSusul=DB.tindakSusul.filter(t=>!di.includes(t.isuId));
+    DB.isu=DB.isu.filter(i=>i.dialogId!==DRAF_SEMASA);
+    DB.dialog=DB.dialog.filter(d=>d.id!==DRAF_SEMASA); DRAF_SEMASA=null; }
   const dId="D"+Date.now();
   DB.dialog.push({id:dId,ppdId:SESSION.ppdId,tarikh:$("#dTarikh").value,minggu:info.minggu,tahun:info.tahun,
     pengerusi,hari:$("#dHari").value,masa:$("#dMasa").value,tempat:$("#dTempat").value,
@@ -2534,6 +2572,88 @@ function submitDialog(){
   tamatProses();
   toast("Laporan Dialog Prestasi berjaya dihantar ✓");
   buildSidebar();navigate("rekod");
+}
+/* ---------- SIMPAN DRAF (tanpa pengesahan ketat; sambung kemudian) ---------- */
+function kumpulBorangDraf(){
+  const blocks=document.querySelectorAll(".issue-block");
+  const issues=[];
+  blocks.forEach(b=>{
+    issues.push({
+      kat:b.querySelector(".issueKat").value,
+      desc:b.querySelector(".issueDesc").value.trim(),
+      tindakan:b.querySelector(".issueTindakan").value.trim(),
+      sektor:b.querySelector(".issueSektor").value.trim(),
+      kawalanKPPD:b.querySelector(".issueKPPD").checked?"Ya":"Tidak",
+      perlu:b.querySelector(".issuePerlu").checked
+    });
+  });
+  const tarikhSesi=$("#dTarikh").value;
+  const info=mingguInfo(tarikhSesi)||mingguInfo(todayISO());
+  return {
+    ppdId:SESSION.ppdId, tarikh:tarikhSesi, hari:$("#dHari").value, masa:$("#dMasa").value,
+    tempat:$("#dTempat").value, pengerusi:$("#dPengerusi").value.trim(),
+    minggu:info.minggu, tahun:info.tahun,
+    kehadiran:$("#dHadir").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    ringkasan:$("#dRingkas").value, disubmitOleh:SESSION.nama,
+    dicatatOleh:$("#dDicatat").value.trim(), disahkanOleh:$("#dDisah").value.trim(),
+    gambar1:borangGambar[1]||"", gambar2:borangGambar[2]||"",
+    issues:issues.map(is=>({kategoriId:is.kat,penerangan:is.desc,tindakan:is.tindakan,
+      sektorPegawai:is.sektor,kawalanKPPD:is.kawalanKPPD,perluTindakSusul:is.perlu}))
+  };
+}
+function simpanDraf(){
+  const payload=kumpulBorangDraf();
+  if(DRAF_SEMASA) payload.drafId=DRAF_SEMASA;
+
+  if(!CONFIG.DEMO_MODE){
+    if(!mulaProses("Menyimpan draf…","Sila tunggu")) return;
+    (async()=>{try{
+      const res=await apiPost("simpanDraf",payload);
+      if(res&&res.drafId) DRAF_SEMASA=res.drafId;
+      await refreshData();
+      toast("Draf disimpan ✓ — boleh disambung dari mana-mana peranti");
+    }catch(err){toast(err.message||"Gagal menyimpan draf");}
+    finally{tamatProses();}})();
+    return;
+  }
+
+  // ---- MOD DEMO ----
+  const keepOrData=(v)=>!v?null:(String(v).startsWith("KEEP:")?String(v).slice(5):v);
+  const info=mingguInfo(payload.tarikh)||mingguInfo(todayISO());
+  let d = DRAF_SEMASA ? DB.dialog.find(x=>x.id===DRAF_SEMASA) : null;
+  if(!d){ d={id:"D"+Date.now(),ppdId:SESSION.ppdId}; DB.dialog.push(d); DRAF_SEMASA=d.id; }
+  Object.assign(d,{tarikh:payload.tarikh,minggu:info.minggu,tahun:info.tahun,pengerusi:payload.pengerusi,
+    hari:payload.hari,masa:payload.masa,tempat:payload.tempat,kehadiran:payload.kehadiran,
+    ringkasan:payload.ringkasan,status:"Draf",tarikhSubmit:todayISO(),
+    dicatatOleh:payload.dicatatOleh,disahkanOleh:payload.disahkanOleh,
+    dihantarKePengarah:false,tarikhHantarPengarah:null,
+    gambar1:keepOrData(borangGambar[1]),gambar2:keepOrData(borangGambar[2])});
+  // ganti isu draf (tanpa tindak susul)
+  DB.isu=DB.isu.filter(i=>i.dialogId!==d.id);
+  payload.issues.forEach((is,idx)=>{
+    DB.isu.push({id:"I"+Date.now()+idx,dialogId:d.id,ppdId:SESSION.ppdId,kategoriId:is.kategoriId,
+      penerangan:is.penerangan,tindakan:is.tindakan,sektorPegawai:is.sektorPegawai,
+      perluTindakSusul:is.perluTindakSusul,tarikh:payload.tarikh,kawalanKPPD:is.kawalanKPPD,
+      statusMakluman:"Belum Dimaklumkan",tarikhMakluman:null});
+  });
+  toast("Draf disimpan ✓");
+}
+function buangDraf(drafId){
+  if(!confirm("Buang draf ini? Data yang belum dihantar akan hilang.")) return;
+  if(!CONFIG.DEMO_MODE){
+    if(!mulaProses("Membuang draf…")) return;
+    (async()=>{try{
+      await apiPost("padamDraf",{dialogId:drafId}); await refreshData();
+      DRAF_SEMASA=null; toast("Draf dibuang"); navigate("borang");
+    }catch(err){toast(err.message||"Gagal membuang draf");}
+    finally{tamatProses();}})();
+    return;
+  }
+  const di=DB.isu.filter(i=>i.dialogId===drafId).map(i=>i.id);
+  DB.tindakSusul=DB.tindakSusul.filter(t=>!di.includes(t.isuId));
+  DB.isu=DB.isu.filter(i=>i.dialogId!==drafId);
+  DB.dialog=DB.dialog.filter(d=>d.id!==drafId);
+  DRAF_SEMASA=null; toast("Draf dibuang"); navigate("borang");
 }
 /* tulis isu + tindak susul (mod demo) */
 function tulisIsuDemo(dId,issues,tarikh){
