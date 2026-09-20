@@ -1729,7 +1729,9 @@ function renderMaklumBalas(){
       <option value="perlu">Belum Dimaklum Balas</option>
       <option value="ada">Sudah Dimaklum Balas</option>
       <option value="">Semua</option>
-    </select></div>`;
+    </select>
+    <button class="btn btn-navy btn-sm" onclick="muatTurunMaklumBalasWord()" title="Muat turun senarai mengikut tapisan semasa sebagai fail Word">⬇ Muat Turun (Word)</button>
+    </div>`;
   h+=`<div id="mbList"></div>`;
   $("#main").innerHTML=h;
   renderMBList();
@@ -1784,6 +1786,98 @@ function renderMBList(){
     h+=`</div></div>`;
   });
   $("#mbList").innerHTML=h;
+}
+/* ---------- MUAT TURUN MAKLUM BALAS (Word .doc) ---------- */
+function muatTurunMaklumBalasWord(){
+  const fp=$("#fbPpd")?$("#fbPpd").value:"";
+  const fs=$("#fbStatus")?$("#fbStatus").value:"perlu";
+  let senarai=isuPerluMaklumBalas().filter(i=>!fp||samePpd(i.ppdId,fp));
+  if(fs==="perlu") senarai=senarai.filter(i=>fbBagiIsu(i.id).length===0);
+  if(fs==="ada")   senarai=senarai.filter(i=>fbBagiIsu(i.id).length>0);
+  if(!senarai.length){ toast("Tiada isu untuk tapisan ini"); return; }
+  senarai.sort((a,b)=>{
+    const na=ppdName(a.ppdId), nb=ppdName(b.ppdId);
+    if(na!==nb) return na<nb?-1:1;
+    const da=DB.dialog.find(x=>x.id===a.dialogId), db_=DB.dialog.find(x=>x.id===b.dialogId);
+    return (db_?mingguRekod(db_):0)-(da?mingguRekod(da):0);
+  });
+
+  const esc=(s)=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const namaStatus = fs==="perlu"?"Belum Dimaklum Balas":(fs==="ada"?"Sudah Dimaklum Balas":"Semua Status");
+  const namaPpd = fp?ppdName(fp):"Semua PPD";
+  const tarikhJana = fmtDate(todayISO());
+
+  const baris = senarai.map((i,n)=>{
+    const d=DB.dialog.find(x=>x.id===i.dialogId);
+    const minggu = d?mingguRekod(d):"?";
+    const fbs=fbBagiIsu(i.id);
+    let mbSel;
+    if(fbs.length){
+      mbSel = fbs.map(f=>`${esc(f.komen)}<br><i style="color:#63757a;font-size:8.5pt">— ${esc(f.oleh)}, ${esc(fmtDate(f.tarikh))}</i>`).join("<br><br>");
+    }else{
+      mbSel = `<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>`;
+    }
+    return `<tr>
+      <td style="text-align:center">${n+1}</td>
+      <td>${esc(ppdName(i.ppdId))}</td>
+      <td style="text-align:center">M${esc(minggu)}<br><span style="font-size:8pt;color:#63757a">${d?esc(fmtDate(d.tarikh)):""}</span></td>
+      <td>${esc(katShort(i.kategoriId))}</td>
+      <td>${esc(i.penerangan)}</td>
+      <td>${esc(i.tindakan)}</td>
+      <td>${esc(i.sektorPegawai||"—")}</td>
+      <td>${mbSel}</td>
+    </tr>`;
+  }).join("");
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">
+<title>Maklum Balas kepada PPD</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>
+@page { size:29.7cm 21cm; mso-page-orientation:landscape; margin:1.4cm 1.5cm; }
+body { font-family:'Calibri',sans-serif; font-size:10pt; color:#1a2a2a; }
+.kepala { border-bottom:2.5pt solid #c89b3c; padding-bottom:8pt; margin-bottom:12pt; }
+.kepala .jbtn { font-size:12pt; font-weight:bold; color:#0e3a3e; }
+.kepala .sektor { font-size:9.5pt; color:#63757a; }
+h1 { font-size:15pt; color:#0e3a3e; margin:10pt 0 3pt 0; }
+.meta { font-size:9.5pt; color:#63757a; margin-bottom:4pt; }
+.arahan { font-size:9.5pt; background:#f3ecd9; border:0.75pt solid #c89b3c; padding:7pt 10pt; margin:8pt 0 12pt 0; }
+table { border-collapse:collapse; width:100%; }
+th,td { border:0.75pt solid #999; padding:5pt 6pt; vertical-align:top; font-size:9.5pt; }
+th { background:#0e3a3e; color:#fff; font-size:9pt; text-align:left; }
+td p { margin:0 0 3pt 0; }
+.kaki { margin-top:14pt; font-size:8.5pt; color:#63757a; border-top:0.75pt solid #ccc; padding-top:6pt; }
+</style></head><body>
+<div class="kepala">
+  <div class="jbtn">JABATAN PENDIDIKAN NEGERI KEDAH</div>
+  <div class="sektor">Sektor Perancangan &amp; Pengurusan PPD (S4PD)</div>
+</div>
+<h1>Maklum Balas kepada PPD — Isu Luar Kawalan KPPD</h1>
+<div class="meta"><b>Skop:</b> ${esc(namaPpd)} &nbsp;·&nbsp; <b>Status:</b> ${esc(namaStatus)} &nbsp;·&nbsp; <b>Bilangan isu:</b> ${senarai.length} &nbsp;·&nbsp; <b>Tarikh jana:</b> ${esc(tarikhJana)}</div>
+<div class="arahan"><b>Perhatian pegawai sektor:</b> Sila lengkapkan ruangan <b>"Maklum Balas / Arahan JPN"</b> bagi isu yang berkaitan dengan sektor tuan/puan, kemudian kembalikan kepada Sektor S4PD untuk direkodkan ke dalam sistem.</div>
+<table>
+  <thead><tr>
+    <th style="width:3%">Bil</th>
+    <th style="width:9%">PPD</th>
+    <th style="width:7%">Minggu</th>
+    <th style="width:10%">Kategori</th>
+    <th style="width:20%">Isu (Luar Kawalan KPPD)</th>
+    <th style="width:18%">Tindakan PPD</th>
+    <th style="width:12%">Sektor / Pegawai</th>
+    <th style="width:21%">Maklum Balas / Arahan JPN</th>
+  </tr></thead>
+  <tbody>${baris}</tbody>
+</table>
+<div class="kaki">Dijana daripada Sistem Pemantauan Dialog Prestasi PPD, JPN Kedah · ${esc(tarikhJana)}. Dokumen ini untuk tindakan penyelarasan dalaman JPN.</div>
+</body></html>`;
+
+  const blob = new Blob(['\ufeff'+html], {type:"application/msword"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const tag = (fp?ppdName(fp).replace(/[^a-zA-Z0-9]/g,"_"):"Semua_PPD")+"_"+(fs==="perlu"?"Belum":fs==="ada"?"Sudah":"Semua");
+  a.href=url; a.download=`Maklum_Balas_PPD_${tag}.doc`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  toast("Fail Word dimuat turun ✓");
 }
 function openFeedback(isuId){
   const i=DB.isu.find(x=>x.id===isuId);
